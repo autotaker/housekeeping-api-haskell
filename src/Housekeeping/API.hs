@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -14,13 +12,10 @@ module Housekeeping.API
 where
 
 import Control.Monad.Except
-import Data.Aeson
-import GHC.Generics
 import Housekeeping.Handler
 import Housekeeping.Model
 import RIO
   ( Generic,
-    Proxy (..),
     RIO,
     SimpleApp,
     catch,

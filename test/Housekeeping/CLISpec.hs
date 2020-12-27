@@ -13,38 +13,29 @@ import Test.Hspec
 
 spec :: Spec
 spec = do
+  let req = defaultRequest
+      status = status200
+      mlen = Nothing
+
   describe "formatAccessLog" $ do
     it "contains http method" $ do
-      let req = defaultRequest {requestMethod = methodGet}
-          status = status200
-          mlen = Nothing
-      textDisplay (formatAccessLog req status mlen)
+      let req' = req {requestMethod = methodGet}
+      textDisplay (formatAccessLog req' status mlen)
         `shouldSatisfy` T.isInfixOf "method:GET"
 
     it "contains http path" $ do
-      let req = defaultRequest {rawPathInfo = "/hoge/fuga"}
-          status = status200
-          mlen = Nothing
-      textDisplay (formatAccessLog req status mlen)
+      let req' = req {rawPathInfo = "/hoge/fuga"}
+      textDisplay (formatAccessLog req' status mlen)
         `shouldSatisfy` T.isInfixOf "path:/hoge/fuga"
 
     it "contains status code" $ do
-      let req = defaultRequest
-          status = status200
-          mlen = Nothing
-      textDisplay (formatAccessLog req status mlen)
-        `shouldSatisfy` T.isInfixOf "code:200"
+      textDisplay (formatAccessLog req status404 mlen)
+        `shouldSatisfy` T.isInfixOf "code:404"
 
     it "contains length" $ do
-      let req = defaultRequest
-          status = status200
-          mlen = Just 42
-      textDisplay (formatAccessLog req status mlen)
+      textDisplay (formatAccessLog req status (Just 42))
         `shouldSatisfy` T.isInfixOf "length:42"
 
     it "contains length:-" $ do
-      let req = defaultRequest
-          status = status200
-          mlen = Nothing
       textDisplay (formatAccessLog req status mlen)
         `shouldSatisfy` T.isInfixOf "length:-"
