@@ -1,6 +1,8 @@
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 module Housekeeping.API(
     API,
     Hello,
@@ -8,26 +10,44 @@ module Housekeeping.API(
     app,
     api) where
 
+import           RIO                  (Generic, Proxy (..), RIO, SimpleApp,
+                                       catch, logInfo, runRIO, throwIO)
+
+import           Control.Monad.Except
 import           Data.Aeson
 import           GHC.Generics
 import           Servant
 
 type API = "hello" :> Get '[JSON] Hello
          :<|> "world" :> Get '[JSON] Hello
+         :<|> "error" :> Get '[JSON] ()
 
 data Hello = Hello | World deriving(Eq, Show, Generic)
 
 instance ToJSON Hello
 
-server :: Server API
-server = helloHandler :<|> worldHandler
+
+server :: ServerT API (RIO SimpleApp)
+server = helloHandler :<|> worldHandler :<|> errorHandler
     where
-    helloHandler = pure Hello
-    worldHandler = pure World
+    helloHandler = do
+        logInfo "GET Hello"
+        pure Hello
+    worldHandler = do
+        logInfo "GET World"
+        pure World
+    errorHandler = do
+        logInfo "GET Error"
+        throwIO err400
 
 api :: Proxy API
 api = Proxy
 
-app :: Application
-app = serve api server
+app :: SimpleApp -> Application
+app env = serve api $ hoistServer api nt server
+    where
+    nt action = Handler $ ExceptT $
+        (Right <$> runRIO env action)
+            `catch` (pure . Left)
+
 
