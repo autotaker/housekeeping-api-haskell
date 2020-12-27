@@ -1,33 +1,44 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
-module Housekeeping.API(
-    API,
+{-# LANGUAGE TypeOperators #-}
+
+module Housekeeping.API
+  ( API,
     Hello,
     server,
     app,
-    api) where
+    api,
+  )
+where
 
-import           RIO                  (Generic, Proxy (..), RIO, SimpleApp,
-                                       catch, logInfo, runRIO, throwIO)
+import Control.Monad.Except
+import Data.Aeson
+import GHC.Generics
+import Housekeeping.Handler
+import Housekeeping.Model
+import RIO
+  ( Generic,
+    Proxy (..),
+    RIO,
+    SimpleApp,
+    catch,
+    logInfo,
+    runRIO,
+    throwIO,
+  )
+import Servant
 
-import           Control.Monad.Except
-import           Data.Aeson
-import           GHC.Generics
-import           Servant
-
-import           Housekeeping.Handler
-import           Housekeeping.Model
-
-type API = "hello" :> Get '[JSON] Hello
-         :<|> "world" :> Get '[JSON] Hello
-         :<|> "error" :> Get '[JSON] ()
-         :<|> "fatal" :> Get '[JSON] ()
+type API =
+  "hello" :> Get '[JSON] Hello
+    :<|> "world" :> Get '[JSON] Hello
+    :<|> "error" :> Get '[JSON] ()
+    :<|> "fatal" :> Get '[JSON] ()
 
 server :: ServerT API (RIO SimpleApp)
-server = helloHandler
+server =
+  helloHandler
     :<|> worldHandler
     :<|> errorHandler
     :<|> fatalHandler
@@ -37,9 +48,9 @@ api = Proxy
 
 app :: SimpleApp -> Application
 app env = serve api $ hoistServer api nt server
-    where
-    nt action = Handler $ ExceptT $
-        (Right <$> runRIO env action)
+  where
+    nt action =
+      Handler $
+        ExceptT $
+          (Right <$> runRIO env action)
             `catch` (pure . Left)
-
-
