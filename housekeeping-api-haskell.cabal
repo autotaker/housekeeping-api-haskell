@@ -18,8 +18,7 @@ category:            Web
 extra-source-files:  CHANGELOG.md, README.md
 
 library
-  exposed-modules:     MyLib
-                 ,     Housekeeping.API
+  exposed-modules:     Housekeeping.API
                  ,     Housekeeping.Handler
                  ,     Housekeeping.Model
                  ,     Housekeeping.CLI
@@ -47,5 +46,12 @@ test-suite housekeeping-api-haskell-test
   default-language:    Haskell2010
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             MyLibTest.hs
+  main-is:             Spec.hs
+  other-modules:       Housekeeping.HandlerSpec
   build-depends:       base ^>=4.13.0.0
+                    ,  hspec ^>= 2.7.4
+                    ,  hspec-expectations ^>= 0.8.2
+                    ,  rio -any
+                    ,  servant-server -any
+                    ,  housekeeping-api-haskell
+  build-tool-depends:  hspec-discover:hspec-discover ^>= 2.7
