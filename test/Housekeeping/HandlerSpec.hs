@@ -24,4 +24,4 @@ spec = do
 
     describe "fatalHandler" $
         it "should throw undefined" $ do
-            runSimpleApp errorHandler `shouldThrow` anyException
+            runSimpleApp fatalHandler `shouldThrow` anyException
