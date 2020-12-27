@@ -21,6 +21,7 @@ import           Servant
 type API = "hello" :> Get '[JSON] Hello
          :<|> "world" :> Get '[JSON] Hello
          :<|> "error" :> Get '[JSON] ()
+         :<|> "fatal" :> Get '[JSON] ()
 
 data Hello = Hello | World deriving(Eq, Show, Generic)
 
@@ -28,7 +29,10 @@ instance ToJSON Hello
 
 
 server :: ServerT API (RIO SimpleApp)
-server = helloHandler :<|> worldHandler :<|> errorHandler
+server = helloHandler
+    :<|> worldHandler
+    :<|> errorHandler
+    :<|> fatalHandler
     where
     helloHandler = do
         logInfo "GET Hello"
@@ -39,6 +43,9 @@ server = helloHandler :<|> worldHandler :<|> errorHandler
     errorHandler = do
         logInfo "GET Error"
         throwIO err400
+    fatalHandler = do
+        logInfo "GET Fatal"
+        undefined
 
 api :: Proxy API
 api = Proxy
