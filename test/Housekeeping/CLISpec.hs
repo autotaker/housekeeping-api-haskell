@@ -34,7 +34,7 @@ spec = do
                 status = status200
                 mlen = Nothing
             textDisplay (formatAccessLog req status mlen)
-                `shouldSatisfy` T.isInfixOf "status:200"
+                `shouldSatisfy` T.isInfixOf "code:200"
 
         it "contains length" $ do
             let req = defaultRequest
