@@ -49,10 +49,13 @@ test-suite housekeeping-api-haskell-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   other-modules:       Housekeeping.HandlerSpec
+                    ,  Housekeeping.CLISpec
   build-depends:       base ^>=4.13.0.0
                     ,  hspec ^>= 2.7.4
                     ,  hspec-expectations ^>= 0.8.2
                     ,  rio -any
                     ,  servant-server -any
+                    ,  wai -any
+                    ,  http-types -any
                     ,  housekeeping-api-haskell
   build-tool-depends:  hspec-discover:hspec-discover ^>= 2.7
