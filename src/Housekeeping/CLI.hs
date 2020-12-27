@@ -14,8 +14,8 @@ main = do
     logOptions <- setLogUseTime True <$> logOptionsHandle stderr True
     withLogFunc logOptions $ \lf -> do
         simpleApp <- mkSimpleApp lf Nothing
-        runSimpleApp $ logInfo "Server started"
-        let warpLogger req status mFileSize = runSimpleApp $ logInfo $
+        runRIO simpleApp $ logInfo "Server started"
+        let warpLogger req status mFileSize = runRIO simpleApp $ logInfo $
                 displayShow method <> ":"
                 <> display code <> ":"
                 <> maybe "-" display mFileSize <> ":"
