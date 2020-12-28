@@ -4,7 +4,6 @@
 
 module Housekeeping.API
   ( API,
-    Hello,
     server,
     app,
     api,
@@ -12,8 +11,8 @@ module Housekeeping.API
 where
 
 import Control.Monad.Except
-import Housekeeping.Handler
-import Housekeeping.Model
+import qualified Housekeeping.Service.Hello.Controller as Hello
+import qualified Housekeeping.Service.Hello.Handler as Hello
 import RIO
   ( Generic,
     RIO,
@@ -25,18 +24,12 @@ import RIO
   )
 import Servant
 
-type API =
-  "hello" :> Get '[JSON] Hello
-    :<|> "world" :> Get '[JSON] Hello
-    :<|> "error" :> Get '[JSON] ()
-    :<|> "fatal" :> Get '[JSON] ()
+type API = "hello" :> Hello.API
 
 server :: ServerT API (RIO SimpleApp)
-server =
-  helloHandler
-    :<|> worldHandler
-    :<|> errorHandler
-    :<|> fatalHandler
+server = hoistServer api helloNT Hello.server
+  where
+    helloNT = Hello.helloController
 
 api :: Proxy API
 api = Proxy

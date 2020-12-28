@@ -19,9 +19,10 @@ extra-source-files:  CHANGELOG.md, README.md
 
 library
   exposed-modules:     Housekeeping.API
-                 ,     Housekeeping.Handler
-                 ,     Housekeeping.Model
                  ,     Housekeeping.CLI
+                 ,     Housekeeping.Service.Hello.Controller
+                 ,     Housekeeping.Service.Hello.Model
+                 ,     Housekeeping.Service.Hello.Handler
   -- other-modules:
   -- other-extensions:
   build-depends:       base ^>=4.13.0.0
@@ -48,14 +49,19 @@ test-suite housekeeping-api-haskell-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  other-modules:       Housekeeping.HandlerSpec
+  other-modules:       Housekeeping.Service.Hello.HandlerSpec
+                    ,  Housekeeping.Service.Hello.ControllerSpec
                     ,  Housekeeping.CLISpec
   build-depends:       base ^>=4.13.0.0
                     ,  hspec ^>= 2.7.4
                     ,  hspec-expectations ^>= 0.8.2
                     ,  rio -any
+                    ,  servant-client ^>= 0.18.2
                     ,  servant-server -any
                     ,  wai -any
+                    ,  warp -any
+                    ,  http-client -any
                     ,  http-types -any
+                    ,  mtl -any
                     ,  housekeeping-api-haskell
   build-tool-depends:  hspec-discover:hspec-discover ^>= 2.7
