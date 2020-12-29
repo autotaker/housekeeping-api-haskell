@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -13,10 +14,17 @@ import Housekeeping.Service.Hello.Model
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.HTTP.Types
 import qualified Network.Wai.Handler.Warp as Warp
-import RIO ()
+import RIO (Text)
 import Servant
 import Servant.Client
-import Servant.Server
+  ( BaseUrl (baseUrlPort),
+    ClientError (FailureResponse),
+    ResponseF (responseStatusCode),
+    client,
+    mkClientEnv,
+    parseBaseUrl,
+    runClientM,
+  )
 import Test.Hspec
 
 newtype HelloControllerMock a = HelloControllerMock {unHelloControllerMock :: Handler a}
@@ -27,6 +35,8 @@ deriving instance Applicative HelloControllerMock
 
 deriving instance Monad HelloControllerMock
 
+deriving instance MonadIO HelloControllerMock
+
 deriving instance MonadError ServerError HelloControllerMock
 
 instance HelloController HelloControllerMock where
@@ -34,6 +44,8 @@ instance HelloController HelloControllerMock where
   worldHandler = pure World
   errorHandler = throwError err400
   fatalHandler = throwError err500
+  selectHandler = pure ["MESSAGE"]
+  insertHandler x = liftIO $ x `shouldBe` "INSERT TEST"
 
 testApp :: Application
 testApp = serve api $ hoistServer api unHelloControllerMock server
@@ -52,6 +64,15 @@ errorAPI = Proxy
 
 fatalAPI :: Proxy ("fatal" :> Get '[JSON] ())
 fatalAPI = Proxy
+
+selectAPI :: Proxy ("message" :> Get '[JSON] [Text])
+selectAPI = Proxy
+
+insertAPIForm :: Proxy ("message" :> ReqBody '[FormUrlEncoded] MessageForm :> Post '[JSON] ())
+insertAPIForm = Proxy
+
+insertAPIJSON :: Proxy ("message" :> ReqBody '[JSON] MessageForm :> Post '[JSON] ())
+insertAPIJSON = Proxy
 
 spec :: Spec
 spec = do
@@ -83,3 +104,19 @@ spec = do
         result `shouldSatisfy` \case
           Left (FailureResponse _ res) -> statusIsServerError (responseStatusCode res)
           _ -> False
+
+    describe "GET /message" $ do
+      it "should return list of messages" $ \port -> do
+        result <- runClientM (client selectAPI) (clientEnv port)
+        result `shouldBe` Right ["Hello World!"]
+
+    describe "POST /message" $ do
+      it "should accept message in x-www-form-urlencoded form" $ \port -> do
+        let form = MessageForm "INSERT TEST"
+        result <- runClientM (client insertAPIForm form) (clientEnv port)
+        result `shouldBe` Right ()
+
+      it "should accept message in json form" $ \port -> do
+        let form = MessageForm "INSERT TEST"
+        result <- runClientM (client insertAPIJSON form) (clientEnv port)
+        result `shouldBe` Right ()

@@ -8,17 +8,18 @@ module Housekeeping.Service.Hello.Controller
     api,
     server,
     HelloController (..),
+    MessageForm (..),
   )
 where
 
-import Data.Aeson (FromJSON)
+import Data.Aeson (FromJSON, ToJSON)
 import Housekeeping.Service.Hello.Model (Hello)
 import RIO
   ( Generic,
     Text,
   )
 import Servant
-import Web.FormUrlEncoded (FromForm)
+import Web.FormUrlEncoded (FromForm, ToForm)
 
 newtype MessageForm = MessageForm {message :: Text}
   deriving (Eq, Ord, Show, Generic)
@@ -26,6 +27,10 @@ newtype MessageForm = MessageForm {message :: Text}
 instance FromJSON MessageForm
 
 instance FromForm MessageForm
+
+instance ToJSON MessageForm
+
+instance ToForm MessageForm
 
 type API =
   "hello" :> Get '[JSON] Hello
