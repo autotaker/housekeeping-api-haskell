@@ -1,9 +1,7 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Hello.ControllerSpec where
@@ -14,7 +12,7 @@ import Housekeeping.Service.Hello.Model
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.HTTP.Types
 import qualified Network.Wai.Handler.Warp as Warp
-import RIO (Text)
+import RIO (RIO, Text, catch, runRIO, throwIO)
 import Servant
 import Servant.Client
   ( BaseUrl (baseUrlPort),
@@ -27,28 +25,26 @@ import Servant.Client
   )
 import Test.Hspec
 
-newtype HelloControllerMock a = HelloControllerMock {unHelloControllerMock :: Handler a}
-
-deriving instance Functor HelloControllerMock
-
-deriving instance Applicative HelloControllerMock
-
-deriving instance Monad HelloControllerMock
-
-deriving instance MonadIO HelloControllerMock
-
-deriving instance MonadError ServerError HelloControllerMock
-
-instance HelloController HelloControllerMock where
-  helloHandler = pure Hello
-  worldHandler = pure World
-  errorHandler = throwError err400
-  fatalHandler = throwError err500
-  selectHandler = pure ["MESSAGE"]
-  insertHandler x = liftIO $ x `shouldBe` "INSERT TEST"
+mockHelloController :: HelloController env
+mockHelloController =
+  HelloController
+    { helloHandler = pure Hello,
+      worldHandler = pure World,
+      errorHandler = throwIO err400,
+      fatalHandler = throwIO err500,
+      selectHandler = pure ["MESSAGE"],
+      insertHandler = \x -> liftIO $ x `shouldBe` "INSERT TEST"
+    }
 
 testApp :: Application
-testApp = serve api $ hoistServer api unHelloControllerMock server
+testApp = serve api $ hoistServer api nt (server mockHelloController)
+  where
+    nt :: RIO () a -> Handler a
+    nt action =
+      Handler $
+        ExceptT $
+          (Right <$> runRIO () action)
+            `catch` (pure . Left)
 
 withTestApp :: (Warp.Port -> IO ()) -> IO ()
 withTestApp = Warp.testWithApplication (pure testApp)
@@ -108,7 +104,7 @@ spec = do
     describe "GET /message" $ do
       it "should return list of messages" $ \port -> do
         result <- runClientM (client selectAPI) (clientEnv port)
-        result `shouldBe` Right ["Hello World!"]
+        result `shouldBe` Right ["MESSAGE"]
 
     describe "POST /message" $ do
       it "should accept message in x-www-form-urlencoded form" $ \port -> do

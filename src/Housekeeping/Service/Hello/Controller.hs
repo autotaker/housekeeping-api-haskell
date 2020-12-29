@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Hello.Controller
@@ -8,6 +9,7 @@ module Housekeeping.Service.Hello.Controller
     api,
     server,
     HelloController (..),
+    HasHelloController (..),
     MessageForm (..),
   )
 where
@@ -16,6 +18,8 @@ import Data.Aeson (FromJSON, ToJSON)
 import Housekeeping.Service.Hello.Model (Hello)
 import RIO
   ( Generic,
+    RIO,
+    SimpleGetter,
     Text,
   )
 import Servant
@@ -41,17 +45,20 @@ type API =
     :<|> "message" :> ReqBody '[JSON, FormUrlEncoded] MessageForm
       :> Post '[JSON] ()
 
-class HelloController m where
-  helloHandler :: m Hello
-  worldHandler :: m Hello
-  errorHandler :: m ()
-  fatalHandler :: m ()
-  selectHandler :: m [Text]
-  insertHandler :: Text -> m ()
+data HelloController env = HelloController
+  { helloHandler :: RIO env Hello,
+    worldHandler :: RIO env Hello,
+    errorHandler :: RIO env (),
+    fatalHandler :: RIO env (),
+    selectHandler :: RIO env [Text],
+    insertHandler :: Text -> RIO env ()
+  }
 
-{-# INLINE server #-}
-server :: HelloController m => ServerT API m
-server =
+class HasHelloController env where
+  helloControllerL :: SimpleGetter env (HelloController env)
+
+server :: HelloController env -> ServerT API (RIO env)
+server HelloController {..} =
   helloHandler
     :<|> worldHandler
     :<|> errorHandler

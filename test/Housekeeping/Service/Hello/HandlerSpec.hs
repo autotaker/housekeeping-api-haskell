@@ -20,7 +20,7 @@ instance HasLogFunc MockEnv where
 instance HasHelloRepository MockEnv where
   helloRepositoryL = lens helloRepository (\x y -> x {helloRepository = y})
 
-run :: HelloControllerImpl MockEnv a -> IO a
+run :: RIO MockEnv a -> IO a
 run action = do
   options <- logOptionsHandle stderr True
   withLogFunc options $ \lf -> do
@@ -33,7 +33,7 @@ run action = do
                     insertMessage = insertMessageMock
                   }
             }
-    runHelloController mockEnv action
+    runRIO mockEnv action
 
 selectMessageMock :: RIO MockEnv [Text]
 selectMessageMock = pure ["Hello World!"]
@@ -46,25 +46,25 @@ spec :: Spec
 spec = do
   describe "helloHandler" $
     it "return Hello" $ do
-      run helloHandler `shouldReturn` Hello
+      run (helloHandler helloControllerImpl) `shouldReturn` Hello
 
   describe "worldHandler" $
     it "return World" $ do
-      run worldHandler `shouldReturn` World
+      run (worldHandler helloControllerImpl) `shouldReturn` World
 
   describe "errorHandler" $
     it "should throw 400 error" $ do
       let any400Error err = errHTTPCode err == 400
-      run errorHandler `shouldThrow` any400Error
+      run (errorHandler helloControllerImpl) `shouldThrow` any400Error
 
   describe "fatalHandler" $
     it "should throw undefined" $ do
-      run fatalHandler `shouldThrow` anyException
+      run (fatalHandler helloControllerImpl) `shouldThrow` anyException
 
   describe "selectHandler" $
     it "should call selectMessage" $ do
-      run selectHandler `shouldReturn` ["Hello World!"]
+      run (selectHandler helloControllerImpl) `shouldReturn` ["Hello World!"]
 
   describe "insertHandler" $
     it "should call insertMessage" $ do
-      run (insertHandler "INSERT TEST") `shouldReturn` ()
+      run (insertHandler helloControllerImpl "INSERT TEST") `shouldReturn` ()

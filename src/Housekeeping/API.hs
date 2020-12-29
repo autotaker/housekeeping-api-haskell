@@ -4,7 +4,6 @@
 
 module Housekeeping.API
   ( API,
-    server,
     app,
     api,
     Env (..),
@@ -20,10 +19,10 @@ import Housekeeping.Service.Hello.Repository (HasDataSource (..))
 import RIO
   ( HasLogFunc (..),
     LogFunc,
-    RIO,
     catch,
     lens,
     runRIO,
+    (^.),
   )
 import Servant
 
@@ -32,7 +31,8 @@ type API = "hello" :> Hello.API
 data Env = Env
   { logFunc :: LogFunc,
     dataSource :: Pool Connection,
-    helloRepository :: Hello.HelloRepository Env
+    helloRepository :: Hello.HelloRepository Env,
+    helloController :: Hello.HelloController Env
   }
 
 instance HasLogFunc Env where
@@ -44,17 +44,16 @@ instance HasDataSource Env where
 instance Hello.HasHelloRepository Env where
   helloRepositoryL = lens helloRepository (\x y -> x {helloRepository = y})
 
-server :: ServerT API (RIO Env)
-server = hoistServer api helloNT Hello.server
-  where
-    helloNT = Hello.helloController
+instance Hello.HasHelloController Env where
+  helloControllerL = lens helloController (\x y -> x {helloController = y})
 
 api :: Proxy API
 api = Proxy
 
 app :: Env -> Application
-app env = serve api $ hoistServer api nt server
+app env = serve api $ hoistServer api nt (Hello.server controller)
   where
+    controller = env ^. Hello.helloControllerL
     nt action =
       Handler $
         ExceptT $
