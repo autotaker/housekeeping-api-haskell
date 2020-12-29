@@ -27,26 +27,30 @@ common shared-properties
   default-language: Haskell2010
   build-depends:
     , aeson
-    , base            ^>=4.13.0.0
+    , base               ^>=4.13.0.0
+    , http-api-data
     , http-types
     , mtl
-    , rio             ^>=0.1.19.0
-    , servant-server  ^>=0.18.2
-    , wai             ^>=3.2.2.1
-    , warp            ^>=3.3.13
+    , postgresql-simple  ^>=0.6.3
+    , resource-pool      ^>=0.2.3.2
+    , rio                ^>=0.1.19.0
+    , servant-server     ^>=0.18.2
+    , wai                ^>=3.2.2.1
+    , warp               ^>=3.3.13
 
   ghc-options:      -Wall
 
 library
   import:          shared-properties
 
-  -- cabal-fmt expand src
+  -- cabal-fmt: expand src
   exposed-modules:
     Housekeeping.API
     Housekeeping.CLI
     Housekeeping.Service.Hello.Controller
     Housekeeping.Service.Hello.Handler
     Housekeeping.Service.Hello.Model
+    Housekeeping.Service.Hello.Repository
 
   -- other-modules:
   -- other-extensions:
@@ -70,7 +74,7 @@ test-suite housekeeping-api-haskell-test
   hs-source-dirs:     test
   main-is:            Spec.hs
 
-  -- cabal-fmt expand test -Spec
+  -- cabal-fmt: expand test -Spec
   other-modules:
     Housekeeping.CLISpec
     Housekeeping.Service.Hello.ControllerSpec

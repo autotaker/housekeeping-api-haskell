@@ -56,7 +56,6 @@ fatalAPI = Proxy
 spec :: Spec
 spec = do
   around withTestApp $ do
-    let helloClient = client api
     baseUrl <- runIO $ parseBaseUrl "http://localhost"
     manager <- runIO $ newManager defaultManagerSettings
     let clientEnv port = mkClientEnv manager baseUrl {baseUrlPort = port}

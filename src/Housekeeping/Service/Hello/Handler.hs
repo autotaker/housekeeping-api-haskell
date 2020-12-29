@@ -14,6 +14,7 @@ where
 
 import Housekeeping.Service.Hello.Controller (HelloController (..))
 import Housekeeping.Service.Hello.Model (Hello (..))
+import Housekeeping.Service.Hello.Repository
 import RIO
 import Servant.Server
 
@@ -38,11 +39,23 @@ deriving instance Applicative (HelloControllerImpl env)
 
 deriving instance Functor (HelloControllerImpl env)
 
-instance HasLogFunc env => HelloController (HelloControllerImpl env) where
+instance (HasLogFunc env, HasDataSource env) => HelloController (HelloControllerImpl env) where
   helloHandler = helloHandlerImpl
   worldHandler = worldHandlerImpl
   errorHandler = errorHandlerImpl
   fatalHandler = fatalHandlerImpl
+  selectHandler = selectHandlerImpl
+  insertHandler = insertHandlerImpl
+
+insertHandlerImpl :: (HasCallStack, HasLogFunc env, HasDataSource env) => Text -> HelloControllerImpl env ()
+insertHandlerImpl msg = do
+  logInfo $ "insert message: " <> display msg
+  HelloControllerImpl $ insertMessage msg
+
+selectHandlerImpl :: (HasCallStack, HasLogFunc env, HasDataSource env) => HelloControllerImpl env [Text]
+selectHandlerImpl = do
+  logInfo "select message"
+  HelloControllerImpl selectMessage
 
 helloHandlerImpl :: (HasCallStack, HasLogFunc env) => HelloControllerImpl env Hello
 helloHandlerImpl = do

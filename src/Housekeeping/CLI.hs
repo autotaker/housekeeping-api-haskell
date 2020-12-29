@@ -2,12 +2,15 @@
 
 module Housekeeping.CLI (main, formatAccessLog) where
 
+import Data.Pool
+import Database.PostgreSQL.Simple
 import Housekeeping.API
 import Network.HTTP.Types.Status
 import Network.Wai
 import Network.Wai.Handler.Warp
 import RIO
 import qualified RIO.List as L
+import System.Environment (lookupEnv)
 
 formatAccessLog :: Request -> Status -> Maybe Integer -> Utf8Builder
 formatAccessLog req status mFileSize =
@@ -35,16 +38,38 @@ formatAccessLog req status mFileSize =
         & maybe "" snd
         & displayBytesUtf8
 
+appConnectInfo :: IO ConnectInfo
+appConnectInfo = do
+  host <- fromMaybe "localhost" <$> lookupEnv "DB_HOST"
+  port <- fromMaybe 5432 . (>>= readMaybe) <$> lookupEnv "DB_PORT"
+  user <- fromMaybe "test" <$> lookupEnv "DB_USER"
+  name <- fromMaybe "testdb" <$> lookupEnv "DB_NAME"
+  pass <- fromMaybe "test" <$> lookupEnv "DB_PASS"
+  pure
+    ConnectInfo
+      { connectHost = host,
+        connectPort = port,
+        connectUser = user,
+        connectPassword = pass,
+        connectDatabase = name
+      }
+
+mkDataSource :: IO (Pool Connection)
+mkDataSource = do
+  cInfo <- appConnectInfo
+  createPool (connect cInfo) close 1 0.5 10
+
 main :: IO ()
 main = do
   logOptions <- setLogUseTime True <$> logOptionsHandle stderr True
   withLogFunc logOptions $ \lf -> do
-    simpleApp <- mkSimpleApp lf Nothing
-    runRIO simpleApp $ logInfo "Server started"
+    ds <- mkDataSource
+    let env = Env {dataSource = ds, logFunc = lf}
+    runRIO env $ logInfo "Server started"
     let warpLogger req status mFileSize =
-          runRIO simpleApp $ logInfo $ formatAccessLog req status mFileSize
+          runRIO env $ logInfo $ formatAccessLog req status mFileSize
     let settings =
           defaultSettings
             & setLogger warpLogger
             & setPort 8080
-    runSettings settings (app simpleApp)
+    runSettings settings (app env)
