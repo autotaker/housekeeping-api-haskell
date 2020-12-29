@@ -2,13 +2,13 @@
 
 module Housekeeping.Service.Hello.Repository
   ( HasDataSource (..),
-    selectMessage,
-    insertMessage,
+    helloRepository,
   )
 where
 
 import Data.Pool
 import Database.PostgreSQL.Simple
+import Housekeeping.Service.Hello.Handler
 import RIO
 
 class HasDataSource env where
@@ -22,10 +22,17 @@ withConnection action = do
     (\(conn, localPool) -> liftIO $ putResource localPool conn)
     (action . fst)
 
-selectMessage :: HasDataSource env => RIO env [Text]
-selectMessage = withConnection $ \conn -> do
+selectMessageImpl :: HasDataSource env => RIO env [Text]
+selectMessageImpl = withConnection $ \conn -> do
   liftIO $ map fromOnly <$> query_ conn "SELECT msg FROM message"
 
-insertMessage :: HasDataSource env => Text -> RIO env ()
-insertMessage msg = withConnection $ \conn -> do
+insertMessageImpl :: HasDataSource env => Text -> RIO env ()
+insertMessageImpl msg = withConnection $ \conn -> do
   void $ liftIO $ execute conn "INSERT INTO message (msg) VALUES (?)" (Only msg)
+
+helloRepository :: HasDataSource env => HelloRepository env
+helloRepository =
+  HelloRepository
+    { insertMessage = insertMessageImpl,
+      selectMessage = selectMessageImpl
+    }

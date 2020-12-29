@@ -31,7 +31,8 @@ type API = "hello" :> Hello.API
 
 data Env = Env
   { logFunc :: LogFunc,
-    dataSource :: Pool Connection
+    dataSource :: Pool Connection,
+    helloRepository :: Hello.HelloRepository Env
   }
 
 instance HasLogFunc Env where
@@ -39,6 +40,9 @@ instance HasLogFunc Env where
 
 instance HasDataSource Env where
   dataSourceL = lens dataSource (\x y -> x {dataSource = y})
+
+instance Hello.HasHelloRepository Env where
+  helloRepositoryL = lens helloRepository (\x y -> x {helloRepository = y})
 
 server :: ServerT API (RIO Env)
 server = hoistServer api helloNT Hello.server

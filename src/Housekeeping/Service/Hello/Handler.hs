@@ -7,6 +7,8 @@
 
 module Housekeeping.Service.Hello.Handler
   ( HelloControllerImpl (..),
+    HelloRepository (..),
+    HasHelloRepository (..),
     runHelloController,
     runHelloControllerSimpleApp,
   )
@@ -14,7 +16,6 @@ where
 
 import Housekeeping.Service.Hello.Controller (HelloController (..))
 import Housekeeping.Service.Hello.Model (Hello (..))
-import Housekeeping.Service.Hello.Repository
 import RIO
 import Servant.Server
 
@@ -39,7 +40,7 @@ deriving instance Applicative (HelloControllerImpl env)
 
 deriving instance Functor (HelloControllerImpl env)
 
-instance (HasLogFunc env, HasDataSource env) => HelloController (HelloControllerImpl env) where
+instance (HasLogFunc env, HasHelloRepository env) => HelloController (HelloControllerImpl env) where
   helloHandler = helloHandlerImpl
   worldHandler = worldHandlerImpl
   errorHandler = errorHandlerImpl
@@ -47,15 +48,25 @@ instance (HasLogFunc env, HasDataSource env) => HelloController (HelloController
   selectHandler = selectHandlerImpl
   insertHandler = insertHandlerImpl
 
-insertHandlerImpl :: (HasCallStack, HasLogFunc env, HasDataSource env) => Text -> HelloControllerImpl env ()
+class HasHelloRepository env where
+  helloRepositoryL :: Lens' env (HelloRepository env)
+
+data HelloRepository env = HelloRepository
+  { insertMessage :: Text -> RIO env (),
+    selectMessage :: RIO env [Text]
+  }
+
+insertHandlerImpl :: (HasCallStack, HasLogFunc env, HasHelloRepository env) => Text -> HelloControllerImpl env ()
 insertHandlerImpl msg = do
   logInfo $ "insert message: " <> display msg
-  HelloControllerImpl $ insertMessage msg
+  method <- view $ helloRepositoryL . to insertMessage
+  HelloControllerImpl $ method msg
 
-selectHandlerImpl :: (HasCallStack, HasLogFunc env, HasDataSource env) => HelloControllerImpl env [Text]
+selectHandlerImpl :: (HasCallStack, HasLogFunc env, HasHelloRepository env) => HelloControllerImpl env [Text]
 selectHandlerImpl = do
   logInfo "select message"
-  HelloControllerImpl selectMessage
+  method <- view $ helloRepositoryL . to selectMessage
+  HelloControllerImpl method
 
 helloHandlerImpl :: (HasCallStack, HasLogFunc env) => HelloControllerImpl env Hello
 helloHandlerImpl = do
