@@ -4,7 +4,7 @@ import Housekeeping.Service.Hello.Model
 import RIO
 
 class HasHelloRepository env where
-  helloRepositoryL :: Lens' env (HelloRepository env)
+  helloRepositoryL :: SimpleGetter env (HelloRepository env)
 
 data HelloRepository env = HelloRepository
   { insertMessage :: Text -> RIO env (),
