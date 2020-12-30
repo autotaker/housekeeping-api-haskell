@@ -8,6 +8,7 @@ module Housekeeping.Service.Hello.ControllerSpec where
 
 import Control.Monad.Except
 import Housekeeping.Service.Hello.Controller
+import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Model
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.HTTP.Types
@@ -25,9 +26,9 @@ import Servant.Client
   )
 import Test.Hspec
 
-mockHelloController :: HelloController env
-mockHelloController =
-  HelloController
+mockHelloHandler :: HelloHandler env
+mockHelloHandler =
+  HelloHandler
     { helloHandler = pure Hello,
       worldHandler = pure World,
       errorHandler = throwIO err400,
@@ -37,7 +38,7 @@ mockHelloController =
     }
 
 testApp :: Application
-testApp = serve api $ hoistServer api nt (server mockHelloController)
+testApp = serve api $ hoistServer api nt (server mockHelloHandler)
   where
     nt :: RIO () a -> Handler a
     nt action =

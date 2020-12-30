@@ -2,8 +2,8 @@
 
 module Housekeeping.Service.Hello.HandlerSpec where
 
-import Housekeeping.Service.Hello.Controller
 import Housekeeping.Service.Hello.Handler
+import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Model
 import RIO
 import Servant.Server
@@ -46,25 +46,25 @@ spec :: Spec
 spec = do
   describe "helloHandler" $
     it "return Hello" $ do
-      run (helloHandler helloControllerImpl) `shouldReturn` Hello
+      run (helloHandler helloHandlerImpl) `shouldReturn` Hello
 
   describe "worldHandler" $
     it "return World" $ do
-      run (worldHandler helloControllerImpl) `shouldReturn` World
+      run (worldHandler helloHandlerImpl) `shouldReturn` World
 
   describe "errorHandler" $
     it "should throw 400 error" $ do
       let any400Error err = errHTTPCode err == 400
-      run (errorHandler helloControllerImpl) `shouldThrow` any400Error
+      run (errorHandler helloHandlerImpl) `shouldThrow` any400Error
 
   describe "fatalHandler" $
     it "should throw undefined" $ do
-      run (fatalHandler helloControllerImpl) `shouldThrow` anyException
+      run (fatalHandler helloHandlerImpl) `shouldThrow` anyException
 
   describe "selectHandler" $
     it "should call selectMessage" $ do
-      run (selectHandler helloControllerImpl) `shouldReturn` ["Hello World!"]
+      run (selectHandler helloHandlerImpl) `shouldReturn` ["Hello World!"]
 
   describe "insertHandler" $
     it "should call insertMessage" $ do
-      run (insertHandler helloControllerImpl "INSERT TEST") `shouldReturn` ()
+      run (insertHandler helloHandlerImpl "INSERT TEST") `shouldReturn` ()

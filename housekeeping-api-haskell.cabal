@@ -47,8 +47,11 @@ library
   exposed-modules:
     Housekeeping.API
     Housekeeping.CLI
+    Housekeeping.DataSource
+    Housekeeping.Service.Hello
     Housekeeping.Service.Hello.Controller
     Housekeeping.Service.Hello.Handler
+    Housekeeping.Service.Hello.Interface
     Housekeeping.Service.Hello.Model
     Housekeeping.Service.Hello.Repository
 
@@ -57,11 +60,11 @@ library
   hs-source-dirs:  src
 
 executable housekeeping-api-haskell
+  import:         shared-properties
   main-is:        Main.hs
 
   -- other-modules:
   -- other-extensions:
-  import:         shared-properties
   build-depends:
     , base                      ^>=4.13.0.0
     , housekeeping-api-haskell

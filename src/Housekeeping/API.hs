@@ -13,16 +13,14 @@ where
 import Control.Monad.Except
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Connection)
-import qualified Housekeeping.Service.Hello.Controller as Hello
-import qualified Housekeeping.Service.Hello.Handler as Hello
-import Housekeeping.Service.Hello.Repository (HasDataSource (..))
+import Housekeeping.DataSource (HasDataSource (..))
+import qualified Housekeeping.Service.Hello as Hello
 import RIO
   ( HasLogFunc (..),
     LogFunc,
     catch,
     lens,
     runRIO,
-    (^.),
   )
 import Servant
 
@@ -30,9 +28,7 @@ type API = "hello" :> Hello.API
 
 data Env = Env
   { logFunc :: LogFunc,
-    dataSource :: Pool Connection,
-    helloRepository :: Hello.HelloRepository Env,
-    helloController :: Hello.HelloController Env
+    dataSource :: Pool Connection
   }
 
 instance HasLogFunc Env where
@@ -41,19 +37,12 @@ instance HasLogFunc Env where
 instance HasDataSource Env where
   dataSourceL = lens dataSource (\x y -> x {dataSource = y})
 
-instance Hello.HasHelloRepository Env where
-  helloRepositoryL = lens helloRepository (\x y -> x {helloRepository = y})
-
-instance Hello.HasHelloController Env where
-  helloControllerL = lens helloController (\x y -> x {helloController = y})
-
 api :: Proxy API
 api = Proxy
 
 app :: Env -> Application
-app env = serve api $ hoistServer api nt (Hello.server controller)
+app env = serve api $ hoistServer api nt Hello.server
   where
-    controller = env ^. Hello.helloControllerL
     nt action =
       Handler $
         ExceptT $

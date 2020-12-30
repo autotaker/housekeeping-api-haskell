@@ -5,8 +5,6 @@ module Housekeeping.CLI (main, formatAccessLog) where
 import Data.Pool
 import Database.PostgreSQL.Simple
 import Housekeeping.API
-import qualified Housekeeping.Service.Hello.Handler as Hello
-import qualified Housekeeping.Service.Hello.Repository as Hello
 import Network.HTTP.Types.Status
 import Network.Wai
 import Network.Wai.Handler.Warp
@@ -69,9 +67,7 @@ main = do
     let env =
           Env
             { dataSource = ds,
-              logFunc = lf,
-              helloRepository = Hello.helloRepository,
-              helloController = Hello.helloControllerImpl
+              logFunc = lf
             }
     runRIO env $ logInfo "Server started"
     let warpLogger req status mFileSize =

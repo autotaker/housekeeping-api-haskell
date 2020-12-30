@@ -6,7 +6,6 @@ import Housekeeping.CLI
 import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
 import Network.Wai
-import Network.Wai.Internal
 import RIO
 import qualified RIO.Text as T
 import Test.Hspec

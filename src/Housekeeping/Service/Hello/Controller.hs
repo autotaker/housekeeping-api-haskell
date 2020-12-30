@@ -8,18 +8,18 @@ module Housekeeping.Service.Hello.Controller
   ( API,
     api,
     server,
-    HelloController (..),
-    HasHelloController (..),
     MessageForm (..),
   )
 where
 
 import Data.Aeson (FromJSON, ToJSON)
+import Housekeeping.Service.Hello.Interface
+  ( HelloHandler (..),
+  )
 import Housekeeping.Service.Hello.Model (Hello)
 import RIO
   ( Generic,
     RIO,
-    SimpleGetter,
     Text,
   )
 import Servant
@@ -45,20 +45,8 @@ type API =
     :<|> "message" :> ReqBody '[JSON, FormUrlEncoded] MessageForm
       :> Post '[JSON] ()
 
-data HelloController env = HelloController
-  { helloHandler :: RIO env Hello,
-    worldHandler :: RIO env Hello,
-    errorHandler :: RIO env (),
-    fatalHandler :: RIO env (),
-    selectHandler :: RIO env [Text],
-    insertHandler :: Text -> RIO env ()
-  }
-
-class HasHelloController env where
-  helloControllerL :: SimpleGetter env (HelloController env)
-
-server :: HelloController env -> ServerT API (RIO env)
-server HelloController {..} =
+server :: HelloHandler env -> ServerT API (RIO env)
+server HelloHandler {..} =
   helloHandler
     :<|> worldHandler
     :<|> errorHandler
