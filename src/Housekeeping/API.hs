@@ -4,38 +4,44 @@
 
 module Housekeeping.API
   ( API,
-    server,
     app,
     api,
+    Env (..),
   )
 where
 
 import Control.Monad.Except
-import qualified Housekeeping.Service.Hello.Controller as Hello
-import qualified Housekeeping.Service.Hello.Handler as Hello
+import Data.Pool (Pool)
+import Database.PostgreSQL.Simple (Connection)
+import Housekeeping.DataSource (HasDataSource (..))
+import qualified Housekeeping.Service.Hello as Hello
 import RIO
-  ( Generic,
-    RIO,
-    SimpleApp,
+  ( HasLogFunc (..),
+    LogFunc,
     catch,
-    logInfo,
+    lens,
     runRIO,
-    throwIO,
   )
 import Servant
 
 type API = "hello" :> Hello.API
 
-server :: ServerT API (RIO SimpleApp)
-server = hoistServer api helloNT Hello.server
-  where
-    helloNT = Hello.helloController
+data Env = Env
+  { logFunc :: LogFunc,
+    dataSource :: Pool Connection
+  }
+
+instance HasLogFunc Env where
+  logFuncL = lens logFunc (\x y -> x {logFunc = y})
+
+instance HasDataSource Env where
+  dataSourceL = lens dataSource (\x y -> x {dataSource = y})
 
 api :: Proxy API
 api = Proxy
 
-app :: SimpleApp -> Application
-app env = serve api $ hoistServer api nt server
+app :: Env -> Application
+app env = serve api $ hoistServer api nt Hello.server
   where
     nt action =
       Handler $

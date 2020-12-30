@@ -1,67 +1,94 @@
-cabal-version:       2.4
+cabal-version:      2.4
+
 -- Initial package description 'housekeeping-api-haskell.cabal' generated
 -- by 'cabal init'.  For further documentation, see
 -- http://haskell.org/cabal/users-guide/
 
-name:                housekeeping-api-haskell
-version:             0.1.0.0
+name:               housekeeping-api-haskell
+version:            0.1.0.0
+
 -- synopsis:
 -- description:
-homepage:            https://github.com/autotaker/housekeeping-api-haskell
+homepage:           https://github.com/autotaker/housekeeping-api-haskell
+
 -- bug-reports:
-license:             BSD-3-Clause
-license-file:        LICENSE
-author:              Taku Terao
-maintainer:          autotaker@gmail.com
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Taku Terao
+maintainer:         autotaker@gmail.com
+
 -- copyright:
-category:            Web
-extra-source-files:  CHANGELOG.md, README.md
+category:           Web
+extra-source-files:
+  CHANGELOG.md
+  README.md
+
+common shared-properties
+  default-language: Haskell2010
+  build-depends:
+    , aeson
+    , base               ^>=4.13.0.0
+    , http-api-data
+    , http-types
+    , mtl
+    , postgresql-simple  ^>=0.6.3
+    , resource-pool      ^>=0.2.3.2
+    , rio                ^>=0.1.19.0
+    , servant-server     ^>=0.18.2
+    , wai                ^>=3.2.2.1
+    , warp               ^>=3.3.13
+
+  ghc-options:      -Wall
 
 library
-  exposed-modules:     Housekeeping.API
-                 ,     Housekeeping.CLI
-                 ,     Housekeeping.Service.Hello.Controller
-                 ,     Housekeeping.Service.Hello.Model
-                 ,     Housekeeping.Service.Hello.Handler
+  import:          shared-properties
+
+  -- cabal-fmt: expand src
+  exposed-modules:
+    Housekeeping.API
+    Housekeeping.CLI
+    Housekeeping.DataSource
+    Housekeeping.Service.Hello
+    Housekeeping.Service.Hello.Controller
+    Housekeeping.Service.Hello.Handler
+    Housekeeping.Service.Hello.Interface
+    Housekeeping.Service.Hello.Model
+    Housekeeping.Service.Hello.Repository
+
   -- other-modules:
   -- other-extensions:
-  build-depends:       base ^>=4.13.0.0
-                     , rio ^>= 0.1.19.0
-                     , servant-server ^>= 0.18.2
-                     , warp ^>= 3.3.13
-                     , wai ^>= 3.2.2.1
-                     , http-types -any
-                     , aeson -any
-                     , mtl -any
-  hs-source-dirs:      src
-  default-language:    Haskell2010
+  hs-source-dirs:  src
 
 executable housekeeping-api-haskell
-  main-is:             Main.hs
+  import:         shared-properties
+  main-is:        Main.hs
+
   -- other-modules:
   -- other-extensions:
-  build-depends:       base ^>=4.13.0.0, housekeeping-api-haskell
-  hs-source-dirs:      app
-  default-language:    Haskell2010
+  build-depends:
+    , base                      ^>=4.13.0.0
+    , housekeeping-api-haskell
+
+  hs-source-dirs: app
 
 test-suite housekeeping-api-haskell-test
-  default-language:    Haskell2010
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Spec.hs
-  other-modules:       Housekeeping.Service.Hello.HandlerSpec
-                    ,  Housekeeping.Service.Hello.ControllerSpec
-                    ,  Housekeeping.CLISpec
-  build-depends:       base ^>=4.13.0.0
-                    ,  hspec ^>= 2.7.4
-                    ,  hspec-expectations ^>= 0.8.2
-                    ,  rio -any
-                    ,  servant-client ^>= 0.18.2
-                    ,  servant-server -any
-                    ,  wai -any
-                    ,  warp -any
-                    ,  http-client -any
-                    ,  http-types -any
-                    ,  mtl -any
-                    ,  housekeeping-api-haskell
-  build-tool-depends:  hspec-discover:hspec-discover ^>= 2.7
+  import:             shared-properties
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  main-is:            Spec.hs
+
+  -- cabal-fmt: expand test -Spec
+  other-modules:
+    Housekeeping.CLISpec
+    Housekeeping.Service.Hello.ControllerSpec
+    Housekeeping.Service.Hello.HandlerSpec
+
+  build-depends:
+    , base                      ^>=4.13.0.0
+    , housekeeping-api-haskell
+    , hspec                     ^>=2.7.4
+    , hspec-expectations        ^>=0.8.2
+    , http-client
+    , servant-client            ^>=0.18.2
+
+  build-tool-depends: hspec-discover:hspec-discover ^>=2.7

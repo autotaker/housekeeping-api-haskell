@@ -1,65 +1,62 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 module Housekeeping.Service.Hello.Handler
-  ( HelloControllerImpl (..),
-    runHelloController,
-    runHelloControllerSimpleApp,
+  ( helloHandlerImpl,
+    HelloRepository (..),
+    HasHelloRepository (..),
   )
 where
 
-import Housekeeping.Service.Hello.Controller (HelloController (..))
+import Housekeeping.Service.Hello.Interface
+  ( HasHelloRepository (..),
+    HelloHandler (..),
+    HelloRepository (..),
+  )
 import Housekeeping.Service.Hello.Model (Hello (..))
 import RIO
 import Servant.Server
 
-newtype HelloControllerImpl env a = HelloControllerImpl
-  {helloController :: RIO env a}
+helloHandlerImpl :: (HasLogFunc env, HasHelloRepository env) => HelloHandler env
+helloHandlerImpl =
+  HelloHandler
+    { helloHandler = helloImpl,
+      worldHandler = worldImpl,
+      errorHandler = errorImpl,
+      fatalHandler = fatalImpl,
+      selectHandler = selectImpl,
+      insertHandler = insertImpl
+    }
 
-runHelloController :: env -> HelloControllerImpl env a -> IO a
-runHelloController env (HelloControllerImpl action) =
-  runRIO env action
+insertImpl :: (HasCallStack, HasLogFunc env, HasHelloRepository env) => Text -> RIO env ()
+insertImpl msg = do
+  logInfo $ "insert message: " <> display msg
+  method <- view $ helloRepositoryL . to insertMessage
+  method msg
 
-runHelloControllerSimpleApp :: HelloControllerImpl SimpleApp a -> IO a
-runHelloControllerSimpleApp (HelloControllerImpl action) =
-  runSimpleApp action
+selectImpl :: (HasCallStack, HasLogFunc env, HasHelloRepository env) => RIO env [Text]
+selectImpl = do
+  logInfo "select message"
+  join $ view $ helloRepositoryL . to selectMessage
 
-deriving instance Monad (HelloControllerImpl env)
-
-deriving instance MonadIO (HelloControllerImpl env)
-
-deriving instance MonadReader env (HelloControllerImpl env)
-
-deriving instance Applicative (HelloControllerImpl env)
-
-deriving instance Functor (HelloControllerImpl env)
-
-instance HasLogFunc env => HelloController (HelloControllerImpl env) where
-  helloHandler = helloHandlerImpl
-  worldHandler = worldHandlerImpl
-  errorHandler = errorHandlerImpl
-  fatalHandler = fatalHandlerImpl
-
-helloHandlerImpl :: (HasCallStack, HasLogFunc env) => HelloControllerImpl env Hello
-helloHandlerImpl = do
+helloImpl :: (HasCallStack, HasLogFunc env) => RIO env Hello
+helloImpl = do
   logInfo "GET Hello"
   pure Hello
 
-worldHandlerImpl :: (HasCallStack, HasLogFunc env) => HelloControllerImpl env Hello
-worldHandlerImpl = do
+worldImpl :: (HasCallStack, HasLogFunc env) => RIO env Hello
+worldImpl = do
   logInfo "GET World"
   pure World
 
-errorHandlerImpl :: (HasCallStack, HasLogFunc env) => HelloControllerImpl env ()
-errorHandlerImpl = do
+errorImpl :: (HasCallStack, HasLogFunc env) => RIO env ()
+errorImpl = do
   logInfo "GET Error"
   throwIO err400
 
-fatalHandlerImpl :: (HasCallStack, HasLogFunc env) => HelloControllerImpl env ()
-fatalHandlerImpl = do
+fatalImpl :: (HasCallStack, HasLogFunc env) => RIO env ()
+fatalImpl = do
   logInfo "GET Fatal"
   undefined
