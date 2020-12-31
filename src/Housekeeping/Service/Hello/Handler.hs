@@ -10,6 +10,7 @@ module Housekeeping.Service.Hello.Handler
   )
 where
 
+import Housekeeping.Callable (call)
 import Housekeeping.Service.Hello.Interface
   ( HasHelloRepository (..),
     HelloHandler (..),
@@ -33,13 +34,12 @@ helloHandlerImpl =
 insertImpl :: (HasCallStack, HasLogFunc env, HasHelloRepository env) => Text -> RIO env ()
 insertImpl msg = do
   logInfo $ "insert message: " <> display msg
-  method <- view $ helloRepositoryL . to insertMessage
-  method msg
+  call (helloRepositoryL . to insertMessage) msg
 
 selectImpl :: (HasCallStack, HasLogFunc env, HasHelloRepository env) => RIO env [Text]
 selectImpl = do
   logInfo "select message"
-  join $ view $ helloRepositoryL . to selectMessage
+  call (helloRepositoryL . to selectMessage)
 
 helloImpl :: (HasCallStack, HasLogFunc env) => RIO env Hello
 helloImpl = do
