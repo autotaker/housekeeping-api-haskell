@@ -1,7 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
-
 module Housekeeping.Service.Hello.Interface where
 
 import Housekeeping.Service.Hello.Model
