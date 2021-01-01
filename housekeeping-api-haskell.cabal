@@ -46,6 +46,7 @@ library
   -- cabal-fmt: expand src
   exposed-modules:
     Housekeeping.API
+    Housekeeping.Callable
     Housekeeping.CLI
     Housekeeping.DataSource
     Housekeeping.Service.Hello
