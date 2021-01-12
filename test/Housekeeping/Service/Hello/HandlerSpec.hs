@@ -1,70 +1,76 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Housekeeping.Service.Hello.HandlerSpec where
 
 import Housekeeping.Service.Hello.Handler
 import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Model
+import Lens.Micro.Platform
 import RIO
 import Servant.Server
 import Test.Hspec
+import Test.Method
 
 data MockEnv = MockEnv
-  { logFunc :: LogFunc,
-    helloRepository :: HelloRepository MockEnv
+  { _logFunc :: LogFunc,
+    _helloRepository :: HelloRepository MockEnv
   }
 
+makeLenses ''MockEnv
+
 instance HasLogFunc MockEnv where
-  logFuncL = lens logFunc (\x y -> x {logFunc = y})
+  logFuncL = logFunc
 
 instance HasHelloRepository MockEnv where
-  helloRepositoryL = lens helloRepository (\x y -> x {helloRepository = y})
+  helloRepositoryL = helloRepository
 
 run :: RIO MockEnv a -> IO a
 run action = do
   options <- logOptionsHandle stderr True
   withLogFunc options $ \lf -> do
-    let mockEnv =
-          MockEnv
-            { logFunc = lf,
-              helloRepository =
-                HelloRepository
-                  { selectMessage = selectMessageMock,
-                    insertMessage = insertMessageMock
-                  }
-            }
-    runRIO mockEnv action
+    runRIO (mockEnv lf) action
 
-selectMessageMock :: RIO MockEnv [Text]
-selectMessageMock = pure ["Hello World!"]
-
-insertMessageMock :: (MonadIO m, Show a, Eq a, IsString a) => a -> m ()
-insertMessageMock x =
-  liftIO $ x `shouldBe` "INSERT TEST"
+mockEnv :: LogFunc -> MockEnv
+mockEnv lf =
+  MockEnv
+    { _logFunc = lf,
+      _helloRepository =
+        HelloRepository
+          { _selectMessage = pure ["Hello World!"],
+            _insertMessage = \_ -> pure ()
+          }
+    }
 
 spec :: Spec
 spec = do
+  let HelloHandler {..} = helloHandlerImpl
   describe "helloHandler" $
     it "return Hello" $ do
-      run (helloHandler helloHandlerImpl) `shouldReturn` Hello
+      run _helloHandler `shouldReturn` Hello
 
   describe "worldHandler" $
     it "return World" $ do
-      run (worldHandler helloHandlerImpl) `shouldReturn` World
+      run _worldHandler `shouldReturn` World
 
   describe "errorHandler" $
     it "should throw 400 error" $ do
       let any400Error err = errHTTPCode err == 400
-      run (errorHandler helloHandlerImpl) `shouldThrow` any400Error
+      run _errorHandler `shouldThrow` any400Error
 
   describe "fatalHandler" $
     it "should throw undefined" $ do
-      run (fatalHandler helloHandlerImpl) `shouldThrow` anyException
+      run _fatalHandler `shouldThrow` anyException
 
   describe "selectHandler" $
     it "should call selectMessage" $ do
-      run (selectHandler helloHandlerImpl) `shouldReturn` ["Hello World!"]
+      run _selectHandler `shouldReturn` ["Hello World!"]
 
   describe "insertHandler" $
     it "should call insertMessage" $ do
-      run (insertHandler helloHandlerImpl "INSERT TEST") `shouldReturn` ()
+      logs <- run $
+        withMonitor_ $ \monitor ->
+          local (helloRepositoryL . insertMessage %~ watch monitor) $
+            _insertHandler "INSERT TEST"
+      logs `shouldSatisfy` (== 1) `times` call (args (== "INSERT TEST"))

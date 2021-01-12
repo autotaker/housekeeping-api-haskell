@@ -47,12 +47,12 @@ type API =
 
 server :: HelloHandler env -> ServerT API (RIO env)
 server HelloHandler {..} =
-  helloHandler
-    :<|> worldHandler
-    :<|> errorHandler
-    :<|> fatalHandler
-    :<|> selectHandler
-    :<|> insertHandler . message
+  _helloHandler
+    :<|> _worldHandler
+    :<|> _errorHandler
+    :<|> _fatalHandler
+    :<|> _selectHandler
+    :<|> _insertHandler . message
 
 api :: Proxy API
 api = Proxy

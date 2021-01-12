@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "lib:housekeeping-api-haskell"
+
+    - path: "app/Main.hs"
+      component: "housekeeping-api-haskell:exe:housekeeping-api-haskell"
+
+    - path: "test"
+      component: "housekeeping-api-haskell:test:housekeeping-api-haskell-test"

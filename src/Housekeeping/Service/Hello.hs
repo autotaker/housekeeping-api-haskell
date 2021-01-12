@@ -16,10 +16,10 @@ import Servant.Server (HasServer (ServerT), hoistServer)
 newtype HelloEnv env = HelloEnv {inherit :: env}
 
 instance (HasLogFunc env, HasDataSource env) => HasHelloHandler (HelloEnv env) where
-  helloHandlerL = to $ const helloHandlerImpl
+  helloHandlerL = lens (const helloHandlerImpl) const
 
 instance (HasLogFunc env, HasDataSource env) => HasHelloRepository (HelloEnv env) where
-  helloRepositoryL = to $ const helloRepositoryImpl
+  helloRepositoryL = lens (const helloRepositoryImpl) const
 
 instance HasLogFunc env => HasLogFunc (HelloEnv env) where
   logFuncL = inheritL . logFuncL
