@@ -10,7 +10,7 @@ import qualified Housekeeping.Service.Hello.Controller as Controller
 import Housekeeping.Service.Hello.Handler (helloHandlerImpl)
 import Housekeeping.Service.Hello.Interface (HasHelloHandler (..), HasHelloRepository (..))
 import Housekeeping.Service.Hello.Repository (helloRepositoryImpl)
-import RIO (HasLogFunc (..), Lens', RIO (..), lens, to)
+import RIO (HasLogFunc (..), Lens', RIO (..), lens)
 import Servant.Server (HasServer (ServerT), hoistServer)
 
 newtype HelloEnv env = HelloEnv {inherit :: env}
