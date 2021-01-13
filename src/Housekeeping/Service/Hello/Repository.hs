@@ -21,6 +21,6 @@ insertMessageImpl msg = withConnection $ \conn -> do
 helloRepositoryImpl :: HasDataSource env => HelloRepository env
 helloRepositoryImpl =
   HelloRepository
-    { insertMessage = insertMessageImpl,
-      selectMessage = selectMessageImpl
+    { _insertMessage = insertMessageImpl,
+      _selectMessage = selectMessageImpl
     }

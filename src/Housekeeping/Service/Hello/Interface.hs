@@ -1,24 +1,31 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Housekeeping.Service.Hello.Interface where
 
 import Housekeeping.Service.Hello.Model
+import Lens.Micro.Platform
 import RIO
 
 class HasHelloRepository env where
-  helloRepositoryL :: SimpleGetter env (HelloRepository env)
+  helloRepositoryL :: Lens' env (HelloRepository env)
 
 data HelloRepository env = HelloRepository
-  { insertMessage :: Text -> RIO env (),
-    selectMessage :: RIO env [Text]
+  { _insertMessage :: Text -> RIO env (),
+    _selectMessage :: RIO env [Text]
   }
+
+makeLenses ''HelloRepository
 
 data HelloHandler env = HelloHandler
-  { helloHandler :: RIO env Hello,
-    worldHandler :: RIO env Hello,
-    errorHandler :: RIO env (),
-    fatalHandler :: RIO env (),
-    selectHandler :: RIO env [Text],
-    insertHandler :: Text -> RIO env ()
+  { _helloHandler :: RIO env Hello,
+    _worldHandler :: RIO env Hello,
+    _errorHandler :: RIO env (),
+    _fatalHandler :: RIO env (),
+    _selectHandler :: RIO env [Text],
+    _insertHandler :: Text -> RIO env ()
   }
 
+makeLenses ''HelloHandler
+
 class HasHelloHandler env where
-  helloHandlerL :: SimpleGetter env (HelloHandler env)
+  helloHandlerL :: Lens' env (HelloHandler env)
