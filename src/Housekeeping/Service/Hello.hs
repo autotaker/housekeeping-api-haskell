@@ -31,7 +31,7 @@ instance HasDataSource env => HasDataSource (HelloEnv env) where
   dataSourceL = inheritL . dataSourceL
 
 server :: (HasLogFunc env, HasDataSource env) => ServerT API (RIO env)
-server = hoistServer api nt (Controller.server helloHandlerImpl)
+server = hoistServer api nt Controller.server
   where
     nt action =
       RIO $ withReaderT HelloEnv $ unRIO action

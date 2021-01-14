@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Hello.Controller
@@ -12,9 +11,16 @@ module Housekeeping.Service.Hello.Controller
   )
 where
 
+import Control.Method (invoke)
 import Data.Aeson (FromJSON, ToJSON)
 import Housekeeping.Service.Hello.Interface
-  ( HelloHandler (..),
+  ( HasHelloHandler (helloHandlerL),
+    errorHandler,
+    fatalHandler,
+    helloHandler,
+    insertHandler,
+    selectHandler,
+    worldHandler,
   )
 import Housekeeping.Service.Hello.Model (Hello)
 import RIO
@@ -23,6 +29,16 @@ import RIO
     Text,
   )
 import Servant
+  ( FormUrlEncoded,
+    Get,
+    HasServer (ServerT),
+    JSON,
+    Post,
+    Proxy (..),
+    ReqBody,
+    type (:<|>) (..),
+    type (:>),
+  )
 import Web.FormUrlEncoded (FromForm, ToForm)
 
 newtype MessageForm = MessageForm {message :: Text}
@@ -45,14 +61,14 @@ type API =
     :<|> "message" :> ReqBody '[JSON, FormUrlEncoded] MessageForm
       :> Post '[JSON] ()
 
-server :: HelloHandler env -> ServerT API (RIO env)
-server HelloHandler {..} =
-  _helloHandler
-    :<|> _worldHandler
-    :<|> _errorHandler
-    :<|> _fatalHandler
-    :<|> _selectHandler
-    :<|> _insertHandler . message
+server :: HasHelloHandler env => ServerT API (RIO env)
+server =
+  invoke (helloHandlerL . helloHandler)
+    :<|> invoke (helloHandlerL . worldHandler)
+    :<|> invoke (helloHandlerL . errorHandler)
+    :<|> invoke (helloHandlerL . fatalHandler)
+    :<|> invoke (helloHandlerL . selectHandler)
+    :<|> invoke (helloHandlerL . insertHandler) . message
 
 api :: Proxy API
 api = Proxy

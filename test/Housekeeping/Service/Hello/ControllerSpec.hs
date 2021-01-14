@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Hello.ControllerSpec where
@@ -10,6 +11,7 @@ import Control.Monad.Except
 import Housekeeping.Service.Hello.Controller
 import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Model
+import Lens.Micro.Platform (makeLenses)
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.HTTP.Types
 import qualified Network.Wai.Handler.Warp as Warp
@@ -25,6 +27,14 @@ import Servant.Client
     runClientM,
   )
 import Test.Hspec
+  ( Spec,
+    around,
+    describe,
+    it,
+    runIO,
+    shouldBe,
+    shouldSatisfy,
+  )
 
 mockHelloHandler :: HelloHandler env
 mockHelloHandler =
@@ -37,14 +47,21 @@ mockHelloHandler =
       _insertHandler = \x -> liftIO $ x `shouldBe` "INSERT TEST"
     }
 
+newtype Env = Env {_hello :: HelloHandler Env}
+
+makeLenses ''Env
+
+instance HasHelloHandler Env where
+  helloHandlerL = hello
+
 testApp :: Application
-testApp = serve api $ hoistServer api nt (server mockHelloHandler)
+testApp = serve api $ hoistServer api nt server
   where
-    nt :: RIO () a -> Handler a
+    nt :: RIO Env a -> Handler a
     nt action =
       Handler $
         ExceptT $
-          (Right <$> runRIO () action)
+          (Right <$> runRIO (Env mockHelloHandler) action)
             `catch` (pure . Left)
 
 withTestApp :: (Warp.Port -> IO ()) -> IO ()
