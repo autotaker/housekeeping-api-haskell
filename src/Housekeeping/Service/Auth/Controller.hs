@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
@@ -16,6 +17,7 @@ import Housekeeping.Service.Auth.Interface
     cookieSettings,
     jwtSettings,
     signinHandler,
+    signupHandler,
   )
 import Housekeeping.Service.Auth.Model (PlainPassword (..), User)
 import Lens.Micro.Platform (makeLenses, view, (^.))
@@ -37,9 +39,12 @@ import Servant
     Post,
     Proxy (..),
     ReqBody,
+    ServerError (errBody),
     err400,
     err401,
+    err409,
     err500,
+    type (:<|>) ((:<|>)),
     type (:>),
   )
 import Servant.Auth.Server
@@ -63,6 +68,9 @@ instance ToJSON PasswordForm
 type API =
   "signin" :> ReqBody '[JSON] PasswordForm
     :> Post '[JSON] (AuthResponse User)
+    :<|> "signup"
+    :> ReqBody '[JSON] PasswordForm
+    :> Post '[JSON] User
 
 type AuthResponse a =
   Headers '[Header "Set-Cookie" SetCookie, Header "Set-Cookie" SetCookie] a
@@ -71,7 +79,7 @@ api :: Proxy API
 api = Proxy
 
 server :: forall env. (HasAuthHandler env, HasAuthConfig env) => ServerT API (RIO env)
-server = signin
+server = signin :<|> signup
   where
     signin :: PasswordForm -> RIO env (AuthResponse User)
     signin form = do
@@ -88,3 +96,14 @@ server = signin
             Just accept -> pure (accept user)
             Nothing -> throwM err500
         _ -> throwM err401
+
+    signup :: PasswordForm -> RIO env User
+    signup form = do
+      let usernm = form ^. userId
+          textPasswd = form ^. password
+      unless (T.all isAscii textPasswd) $ throwM err400
+      let passwd = PlainPassword $ encodeUtf8 textPasswd
+      mUser <- invoke (authHandlerL . signupHandler) usernm passwd
+      case mUser of
+        Just user -> pure user
+        Nothing -> throwM err409 {errBody = "The user ID is already taken"}
