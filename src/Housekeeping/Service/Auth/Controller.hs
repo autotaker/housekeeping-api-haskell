@@ -51,6 +51,7 @@ import Servant.Auth.Server
   ( AuthResult (Authenticated),
     SetCookie,
     acceptLogin,
+    clearSession,
   )
 
 data PasswordForm = PasswordForm
@@ -71,6 +72,8 @@ type API =
     :<|> "signup"
     :> ReqBody '[JSON] PasswordForm
     :> Post '[JSON] User
+    :<|> "signout"
+    :> Post '[JSON] (AuthResponse ())
 
 type AuthResponse a =
   Headers '[Header "Set-Cookie" SetCookie, Header "Set-Cookie" SetCookie] a
@@ -79,7 +82,7 @@ api :: Proxy API
 api = Proxy
 
 server :: forall env. (HasAuthHandler env, HasAuthConfig env) => ServerT API (RIO env)
-server = signin :<|> signup
+server = signin :<|> signup :<|> signout
   where
     signin :: PasswordForm -> RIO env (AuthResponse User)
     signin form = do
@@ -107,3 +110,8 @@ server = signin :<|> signup
       case mUser of
         Just user -> pure user
         Nothing -> throwM err409 {errBody = "The user ID is already taken"}
+
+    signout :: RIO env (AuthResponse ())
+    signout = do
+      cookieCfg <- view $ authConfigL . cookieSettings
+      pure $ clearSession cookieCfg ()

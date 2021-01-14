@@ -9,6 +9,7 @@
 module Housekeeping.Service.Auth.ControllerSpec where
 
 import Control.Monad.Except (ExceptT (ExceptT))
+import Crypto.JOSE (JWK)
 import Housekeeping.Service.Auth.Controller
   ( AuthResponse,
     PasswordForm (PasswordForm),
@@ -70,7 +71,6 @@ import Test.Method
     thenReturn,
     when,
   )
-import Crypto.JOSE (JWK)
 
 mockAuthHandler :: AuthHandler env
 mockAuthHandler =
@@ -131,6 +131,9 @@ signinApi = Proxy
 signupApi :: Proxy ("signup" :> ReqBody '[JSON] PasswordForm :> Post '[JSON] User)
 signupApi = Proxy
 
+signoutApi :: Proxy ("signout" :> Post '[JSON] (AuthResponse ()))
+signoutApi = Proxy
+
 spec :: Spec
 spec = around withTestApp $ do
   baseUrl <- runIO $ parseBaseUrl "http://localhost"
@@ -161,7 +164,7 @@ spec = around withTestApp $ do
         result <- runClientM (client signinApi form) (clientEnv port)
         fmap getResponse result `shouldSatisfy` anyErrorStatus 401
 
-  describe "signup" $ do
+  describe "POST /signup" $ do
     context "if username is not taken" $ do
       it "should return user" $ \port -> do
         let form = PasswordForm "user2" "password2"
@@ -177,6 +180,10 @@ spec = around withTestApp $ do
         let form = PasswordForm "user2" "パスワード"
         result <- runClientM (client signupApi form) (clientEnv port)
         result `shouldSatisfy` anyErrorStatus 400
+  describe "POST /signout" $ do
+    it "return response" $ \port -> do
+      result <- runClientM (client signoutApi) (clientEnv port)
+      fmap getResponse result `shouldBe` Right ()
 
 anyErrorStatus :: Int -> Selector (Either ClientError a)
 anyErrorStatus code (Left (FailureResponse _ res)) =
