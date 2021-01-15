@@ -3,8 +3,7 @@
 module Housekeeping.Service.Auth.Interface where
 
 import Housekeeping.Service.Auth.Model
-  ( HashedPassword,
-    PasswordAuth,
+  ( PasswordAuth,
     PlainPassword,
     User,
     UserId,
