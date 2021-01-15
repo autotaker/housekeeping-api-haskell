@@ -9,8 +9,18 @@ import Lens.Micro.Platform (makeLenses)
 import RIO (ByteString, Generic, Text)
 import Servant.Auth.Server (FromJWT, ToJWT)
 
-newtype User = User {_userId :: UserId}
+type UserId = Text
+
+newtype PlainPassword = PlainPassword ByteString
+  deriving (Eq, Ord, Show)
+
+newtype HashedPassword = HashedPassword ByteString
+  deriving (Eq, Ord, Show)
+
+data User = User {_userId :: UserId, _userSerialId :: Int}
   deriving (Show, Eq, Ord, Generic)
+
+makeLenses ''User
 
 instance FromJSON User
 
@@ -20,12 +30,10 @@ instance FromJWT User
 
 instance ToJWT User
 
-type UserId = Text
+data PasswordAuth = PasswordAuth
+  { _passwordAuthUser :: User,
+    _passwordAuthPass :: HashedPassword
+  }
+  deriving (Show, Eq, Ord, Generic)
 
-newtype PlainPassword = PlainPassword ByteString
-  deriving (Eq, Ord, Show)
-
-newtype HashedPassword = HashedPassword ByteString
-  deriving (Eq, Ord, Show)
-
-makeLenses ''User
+makeLenses ''PasswordAuth

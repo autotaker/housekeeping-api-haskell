@@ -3,7 +3,9 @@
 module Housekeeping.Service.Auth.Interface where
 
 import Housekeeping.Service.Auth.Model
-  ( PlainPassword,
+  ( HashedPassword,
+    PasswordAuth,
+    PlainPassword,
     User,
     UserId,
   )
@@ -26,6 +28,16 @@ class HasAuthHandler env where
 data AuthConfig = AuthConfig
   { _cookieSettings :: CookieSettings,
     _jwtSettings :: JWTSettings
+  }
+
+data UserRepository env = UserRepository
+  { _findUserByUserId :: UserId -> RIO env (Maybe User),
+    _createUser :: User -> RIO env User
+  }
+
+data AuthRepository env = AuthRepository
+  { _findPasswordAuthByUserId :: UserId -> RIO env (Maybe PasswordAuth),
+    _upsertPasswordAuth :: PasswordAuth -> RIO env ()
   }
 
 class HasAuthConfig env where

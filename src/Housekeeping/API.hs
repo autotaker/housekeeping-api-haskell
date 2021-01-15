@@ -13,13 +13,13 @@ where
 import Control.Monad.Except
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Connection)
-import Housekeeping.DataSource (HasDataSource (..))
+import Housekeeping.DataSource (HasConnectionPool (..), HasTransactionManager (..), TransactionManager)
 import qualified Housekeeping.Service.Hello as Hello
+import Lens.Micro.Platform
 import RIO
   ( HasLogFunc (..),
     LogFunc,
     catch,
-    lens,
     runRIO,
   )
 import Servant
@@ -27,15 +27,21 @@ import Servant
 type API = "hello" :> Hello.API
 
 data Env = Env
-  { logFunc :: LogFunc,
-    dataSource :: Pool Connection
+  { _logFunc :: LogFunc,
+    _connectionPool :: Pool Connection,
+    _transactionManager :: TransactionManager
   }
 
-instance HasLogFunc Env where
-  logFuncL = lens logFunc (\x y -> x {logFunc = y})
+makeLenses ''Env
 
-instance HasDataSource Env where
-  dataSourceL = lens dataSource (\x y -> x {dataSource = y})
+instance HasLogFunc Env where
+  logFuncL = logFunc
+
+instance HasConnectionPool Env where
+  connectionPoolL = connectionPool
+
+instance HasTransactionManager Env where
+  transactionManagerL = transactionManager
 
 api :: Proxy API
 api = Proxy
