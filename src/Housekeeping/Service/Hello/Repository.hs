@@ -5,25 +5,32 @@ module Housekeeping.Service.Hello.Repository
   )
 where
 
+import Control.Method (invoke)
 import Housekeeping.DataSource
-  ( HasTransactionManager (..),
-    Only (Only, fromOnly),
+  ( Only (Only, fromOnly),
+    ViewDatabase (databaseV),
     execute,
     query_,
-    withConnection,
   )
 import Housekeeping.Service.Hello.Handler
 import RIO
 
-selectMessageImpl :: HasTransactionManager env => RIO env [Text]
-selectMessageImpl = withConnection $ \conn -> do
-  liftIO $ map fromOnly <$> query_ conn "SELECT msg FROM message"
+selectMessageImpl :: ViewDatabase env => RIO env [Text]
+selectMessageImpl =
+  map fromOnly
+    <$> invoke
+      (databaseV . query_)
+      "SELECT msg FROM message"
 
-insertMessageImpl :: HasTransactionManager env => Text -> RIO env ()
-insertMessageImpl msg = withConnection $ \conn -> do
-  void $ liftIO $ execute conn "INSERT INTO message (msg) VALUES (?)" (Only msg)
+insertMessageImpl :: ViewDatabase env => Text -> RIO env ()
+insertMessageImpl msg =
+  void $
+    invoke
+      (databaseV . execute)
+      "INSERT INTO message (msg) VALUES (?)"
+      (Only msg)
 
-helloRepositoryImpl :: HasTransactionManager env => HelloRepository env
+helloRepositoryImpl :: ViewDatabase env => HelloRepository env
 helloRepositoryImpl =
   HelloRepository
     { _insertMessage = insertMessageImpl,

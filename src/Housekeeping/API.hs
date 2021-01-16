@@ -13,7 +13,7 @@ where
 import Control.Monad.Except
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Connection)
-import Housekeeping.DataSource (HasConnectionPool (..), HasTransactionManager (..), TransactionManager)
+import Housekeeping.DataSource (databaseImpl, HasConnectionPool (..), HasTransactionManager (..), TransactionManager, ViewDatabase (..))
 import qualified Housekeeping.Service.Hello as Hello
 import Lens.Micro.Platform
 import RIO
@@ -42,6 +42,9 @@ instance HasConnectionPool Env where
 
 instance HasTransactionManager Env where
   transactionManagerL = transactionManager
+
+instance ViewDatabase Env where
+  databaseV = to (const databaseImpl)
 
 api :: Proxy API
 api = Proxy
