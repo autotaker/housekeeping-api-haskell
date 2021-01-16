@@ -1,4 +1,3 @@
-{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -13,10 +12,10 @@ module Housekeeping.Cascade
   )
 where
 
-import Control.Method (Method (..), invoke)
+import Control.Method (Method (..))
 import Data.Functor.Contravariant
-import Lens.Micro.Platform
-import RIO
+import Lens.Micro.Platform (Lens', to, view)
+import RIO (RIO, runRIO)
 
 class HasSuper x where
   type Super x

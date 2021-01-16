@@ -26,6 +26,8 @@ instance HasLogFunc MockEnv where
 instance HasHelloRepository MockEnv where
   helloRepositoryL = helloRepository
 
+instance ViewHelloRepository MockEnv
+
 run :: RIO MockEnv a -> IO a
 run action = do
   options <- logOptionsHandle stderr True

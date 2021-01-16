@@ -14,7 +14,7 @@ where
 import Control.Method (invoke)
 import Data.Aeson (FromJSON, ToJSON)
 import Housekeeping.Service.Hello.Interface
-  ( HasHelloHandler (helloHandlerL),
+  ( ViewHelloHandler (helloHandlerV),
     errorHandler,
     fatalHandler,
     helloHandler,
@@ -61,14 +61,14 @@ type API =
     :<|> "message" :> ReqBody '[JSON, FormUrlEncoded] MessageForm
       :> Post '[JSON] ()
 
-server :: HasHelloHandler env => ServerT API (RIO env)
+server :: ViewHelloHandler env => ServerT API (RIO env)
 server =
-  invoke (helloHandlerL . helloHandler)
-    :<|> invoke (helloHandlerL . worldHandler)
-    :<|> invoke (helloHandlerL . errorHandler)
-    :<|> invoke (helloHandlerL . fatalHandler)
-    :<|> invoke (helloHandlerL . selectHandler)
-    :<|> invoke (helloHandlerL . insertHandler) . message
+  invoke (helloHandlerV . helloHandler)
+    :<|> invoke (helloHandlerV . worldHandler)
+    :<|> invoke (helloHandlerV . errorHandler)
+    :<|> invoke (helloHandlerV . fatalHandler)
+    :<|> invoke (helloHandlerV . selectHandler)
+    :<|> invoke (helloHandlerV . insertHandler) . message
 
 api :: Proxy API
 api = Proxy

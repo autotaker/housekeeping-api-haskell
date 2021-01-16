@@ -54,6 +54,8 @@ makeLenses ''Env
 instance HasHelloHandler Env where
   helloHandlerL = hello
 
+instance ViewHelloHandler Env
+
 testApp :: Application
 testApp = serve api $ hoistServer api nt server
   where
