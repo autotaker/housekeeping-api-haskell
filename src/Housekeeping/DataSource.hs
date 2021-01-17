@@ -12,7 +12,7 @@ module Housekeeping.DataSource
     TransactionManager (..),
     HasDatabase (..),
     ViewDatabase (..),
-    Database,
+    Database (..),
     execute,
     execute_,
     query,
@@ -23,21 +23,22 @@ module Housekeeping.DataSource
 where
 
 import Control.Method
+import Data.Aeson (FromJSON (..))
 import Data.Functor.Contravariant (Contravariant (..))
 import Data.Pool (Pool, putResource, takeResource)
 import Database.PostgreSQL.Simple (Connection, FromRow, Only (..), Query, ToRow)
 import qualified Database.PostgreSQL.Simple as Sql
 import Housekeeping.Cascade (mapEnvMethod)
 import Lens.Micro.Platform (SimpleGetter, makeLenses, (?~))
-import RIO (Int64, Lens', MonadIO (liftIO), MonadReader (local), RIO, bracket, bracketOnError_, view)
+import RIO (Int64, Lens', MonadIO (liftIO), MonadReader (local), RIO, Typeable, bracket, bracketOnError_, view)
 
 class HasConnectionPool env where
   connectionPoolL :: Lens' env (Pool Connection)
 
 data Database env = Database
-  { _query :: forall q r. (ToRow q, FromRow r) => Query -> q -> RIO env [r],
-    _query_ :: forall r. (FromRow r) => Query -> RIO env [r],
-    _execute :: forall q. (ToRow q) => Query -> q -> RIO env Int64,
+  { _query :: forall q r. (Typeable q, ToRow q, Typeable r, FromRow r) => Query -> q -> RIO env [r],
+    _query_ :: forall r. (Typeable r, FromRow r) => Query -> RIO env [r],
+    _execute :: forall q. (ToRow q, Typeable q) => Query -> q -> RIO env Int64,
     _execute_ :: Query -> RIO env Int64
   }
 
