@@ -38,7 +38,8 @@ databaseMock =
       _execute = mockup $ do
         when (args ((== "INSERT INTO message (msg) VALUES (?)"), anything))
           `thenReturn` 0,
-      _execute_ = undefined
+      _execute_ = undefined,
+      _returning = undefined
     }
 
 newtype Env = Env {_database :: Database Env}

@@ -17,6 +17,7 @@ module Housekeeping.DataSource
     execute_,
     query,
     query_,
+    returning,
     Only (..),
     databaseImpl,
   )
@@ -38,7 +39,13 @@ data Database env = Database
   { _query :: forall q r. (Typeable q, ToRow q, Typeable r, FromRow r) => Query -> q -> RIO env [r],
     _query_ :: forall r. (Typeable r, FromRow r) => Query -> RIO env [r],
     _execute :: forall q. (ToRow q, Typeable q) => Query -> q -> RIO env Int64,
-    _execute_ :: Query -> RIO env Int64
+    _execute_ :: Query -> RIO env Int64,
+    _returning ::
+      forall q r.
+      (Typeable q, ToRow q, Typeable r, FromRow r) =>
+      Query ->
+      [q] ->
+      RIO env [r]
   }
 
 instance Contravariant Database where
@@ -47,7 +54,8 @@ instance Contravariant Database where
       { _query = mapEnvMethod f _query,
         _query_ = mapEnvMethod f _query_,
         _execute = mapEnvMethod f _execute,
-        _execute_ = mapEnvMethod f _execute_
+        _execute_ = mapEnvMethod f _execute_,
+        _returning = mapEnvMethod f _returning
       }
 
 makeLenses ''Database
@@ -103,5 +111,6 @@ databaseImpl =
     { _query = \sql q -> withConnection (\conn -> liftIO $ Sql.query conn sql q),
       _query_ = \sql -> withConnection (\conn -> liftIO $ Sql.query_ conn sql),
       _execute = \sql q -> withConnection (\conn -> liftIO $ Sql.execute conn sql q),
-      _execute_ = \sql -> withConnection (\conn -> liftIO $ Sql.execute_ conn sql)
+      _execute_ = \sql -> withConnection (\conn -> liftIO $ Sql.execute_ conn sql),
+      _returning = \sql q -> withConnection (\conn -> liftIO $ Sql.returning conn sql q)
     }

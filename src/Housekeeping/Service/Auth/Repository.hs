@@ -4,14 +4,29 @@ import Control.Method
 import Housekeeping.DataSource
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
+import RIO
 
 userRepositoryImpl :: ViewDatabase env => UserRepository env
 userRepositoryImpl =
   UserRepository
     { _findUserByUserName = findUser,
-      _createUser = undefined
+      _createUser = create
     }
   where
+    create user = do
+      r <-
+        invoke
+          (databaseV . query)
+          "INSERT INTO user (user_name) VALUES (?) RETURNING user_id"
+          (Only $ user ^. userName)
+      case r of
+        [Only i] -> pure $ user & userId .~ i
+        rows ->
+          error $
+            "query returns non-single row: user = "
+              ++ show user
+              ++ ", returning = "
+              ++ show rows
     findUser username = do
       r <-
         invoke

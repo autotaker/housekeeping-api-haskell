@@ -31,10 +31,16 @@ databaseMock =
         when (args ((== sql), dynEq (Only ("same_user" :: UserName))))
           `thenReturn` [dyn (User "same_user" 1), dyn (User "same_user" 2)]
         when (args ((== sql), anything))
+          `thenReturn` []
+        let createUserSql = "INSERT INTO user (user_name) VALUES (?) RETURNING user_id"
+        when (args ((== createUserSql), dynEq (Only ("user2" :: UserName))))
+          `thenReturn` [dyn $ Only (2 :: Int)]
+        when (args ((== createUserSql), dynEq (Only ("broken_user" :: UserName))))
           `thenReturn` [],
       _query_ = undefined,
       _execute = undefined,
-      _execute_ = undefined
+      _execute_ = undefined,
+      _returning = undefined
     }
 
 spec :: Spec
@@ -56,4 +62,16 @@ spec = do
           runRIO
             (Env databaseMock)
             (invoke (userRepositoryV . findUserByUserName) "same_user")
+            `shouldThrow` anyErrorCall
+    describe "createUser" $ do
+      it "return User with fresh user_id" $ do
+        runRIO
+          (Env databaseMock)
+          (invoke (userRepositoryV . createUser) (User "user2" 0))
+          `shouldReturn` User "user2" 2
+      context "if database returns non-single rows" $ do
+        it "throw error" $
+          runRIO
+            (Env databaseMock)
+            (invoke (userRepositoryV . createUser) (User "broken_user" 0))
             `shouldThrow` anyErrorCall
