@@ -96,6 +96,7 @@ test-suite housekeeping-api-haskell-test
     Housekeeping.Service.Hello.ControllerSpec
     Housekeeping.Service.Hello.HandlerSpec
     Housekeeping.Service.Hello.RepositorySpec
+    Housekeeping.TestHelper
 
   build-depends:
     , base                      ^>=4.13.0.0
