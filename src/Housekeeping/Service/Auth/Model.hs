@@ -5,11 +5,14 @@
 module Housekeeping.Service.Auth.Model where
 
 import Data.Aeson (FromJSON, ToJSON)
+import Database.PostgreSQL.Simple (FromRow)
 import Lens.Micro.Platform (makeLenses)
 import RIO (ByteString, Generic, Text)
 import Servant.Auth.Server (FromJWT, ToJWT)
 
-type UserId = Text
+type UserId = Int
+
+type UserName = Text
 
 newtype PlainPassword = PlainPassword ByteString
   deriving (Eq, Ord, Show)
@@ -17,7 +20,7 @@ newtype PlainPassword = PlainPassword ByteString
 newtype HashedPassword = HashedPassword ByteString
   deriving (Eq, Ord, Show)
 
-data User = User {_userId :: UserId, _userSerialId :: Int}
+data User = User {_userName :: UserName, _userId :: UserId}
   deriving (Show, Eq, Ord, Generic)
 
 makeLenses ''User
@@ -29,6 +32,8 @@ instance ToJSON User
 instance FromJWT User
 
 instance ToJWT User
+
+instance FromRow User
 
 data PasswordAuth = PasswordAuth
   { _passwordAuthUser :: User,

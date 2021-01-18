@@ -60,6 +60,7 @@ library
     Housekeeping.Service.Auth.Controller
     Housekeeping.Service.Auth.Interface
     Housekeeping.Service.Auth.Model
+    Housekeeping.Service.Auth.Repository
     Housekeeping.Service.Hello
     Housekeeping.Service.Hello.Controller
     Housekeeping.Service.Hello.Handler
@@ -93,6 +94,7 @@ test-suite housekeeping-api-haskell-test
   other-modules:
     Housekeeping.CLISpec
     Housekeeping.Service.Auth.ControllerSpec
+    Housekeeping.Service.Auth.RepositorySpec
     Housekeeping.Service.Hello.ControllerSpec
     Housekeeping.Service.Hello.HandlerSpec
     Housekeeping.Service.Hello.RepositorySpec

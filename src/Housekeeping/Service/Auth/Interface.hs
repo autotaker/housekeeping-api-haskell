@@ -6,9 +6,9 @@ import Housekeeping.Service.Auth.Model
   ( PasswordAuth,
     PlainPassword,
     User,
-    UserId,
+    UserName,
   )
-import Lens.Micro.Platform (Lens', makeLenses)
+import Lens.Micro.Platform (Lens', SimpleGetter, makeLenses)
 import RIO (RIO)
 import Servant.Auth.Server
   ( AuthResult,
@@ -17,8 +17,8 @@ import Servant.Auth.Server
   )
 
 data AuthHandler env = AuthHandler
-  { _signinHandler :: UserId -> PlainPassword -> RIO env (AuthResult User),
-    _signupHandler :: UserId -> PlainPassword -> RIO env (Maybe User)
+  { _signinHandler :: UserName -> PlainPassword -> RIO env (AuthResult User),
+    _signupHandler :: UserName -> PlainPassword -> RIO env (Maybe User)
   }
 
 class HasAuthHandler env where
@@ -30,12 +30,17 @@ data AuthConfig = AuthConfig
   }
 
 data UserRepository env = UserRepository
-  { _findUserByUserId :: UserId -> RIO env (Maybe User),
+  { _findUserByUserName :: UserName -> RIO env (Maybe User),
     _createUser :: User -> RIO env User
   }
 
+makeLenses ''UserRepository
+
+class ViewUserRepository env where
+  userRepositoryV :: SimpleGetter env (UserRepository env)
+
 data AuthRepository env = AuthRepository
-  { _findPasswordAuthByUserId :: UserId -> RIO env (Maybe PasswordAuth),
+  { _findPasswordAuthByUserName :: UserName -> RIO env (Maybe PasswordAuth),
     _upsertPasswordAuth :: PasswordAuth -> RIO env ()
   }
 

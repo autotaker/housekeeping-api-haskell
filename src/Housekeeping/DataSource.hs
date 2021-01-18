@@ -23,7 +23,6 @@ module Housekeeping.DataSource
 where
 
 import Control.Method
-import Data.Aeson (FromJSON (..))
 import Data.Functor.Contravariant (Contravariant (..))
 import Data.Pool (Pool, putResource, takeResource)
 import Database.PostgreSQL.Simple (Connection, FromRow, Only (..), Query, ToRow)
