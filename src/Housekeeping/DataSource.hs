@@ -19,6 +19,7 @@ module Housekeeping.DataSource
     query_,
     returning,
     Only (..),
+    (:.) (..),
     databaseImpl,
   )
 where
@@ -26,7 +27,7 @@ where
 import Control.Method
 import Data.Functor.Contravariant (Contravariant (..))
 import Data.Pool (Pool, putResource, takeResource)
-import Database.PostgreSQL.Simple (Connection, FromRow, Only (..), Query, ToRow)
+import Database.PostgreSQL.Simple (Connection, FromRow, Only (..), Query, ToRow, (:.) (..))
 import qualified Database.PostgreSQL.Simple as Sql
 import Housekeeping.Cascade (mapEnvMethod)
 import Lens.Micro.Platform (SimpleGetter, makeLenses, (?~))

@@ -3,7 +3,8 @@
 module Housekeeping.Service.Auth.Interface where
 
 import Housekeeping.Service.Auth.Model
-  ( PasswordAuth,
+  ( HashedPassword,
+    PasswordAuth,
     PlainPassword,
     User,
     UserName,
@@ -21,6 +22,8 @@ data AuthHandler env = AuthHandler
     _signupHandler :: UserName -> PlainPassword -> RIO env (Maybe User)
   }
 
+makeLenses ''AuthHandler
+
 class HasAuthHandler env where
   authHandlerL :: Lens' env (AuthHandler env)
 
@@ -28,6 +31,8 @@ data AuthConfig = AuthConfig
   { _cookieSettings :: CookieSettings,
     _jwtSettings :: JWTSettings
   }
+
+makeLenses ''AuthConfig
 
 data UserRepository env = UserRepository
   { _findUserByUserName :: UserName -> RIO env (Maybe User),
@@ -44,9 +49,19 @@ data AuthRepository env = AuthRepository
     _upsertPasswordAuth :: PasswordAuth -> RIO env ()
   }
 
+makeLenses ''AuthRepository
+
+class ViewAuthRepository env where
+  authRepositoryV :: SimpleGetter env (AuthRepository env)
+
 class HasAuthConfig env where
   authConfigL :: Lens' env AuthConfig
 
-makeLenses ''AuthConfig
+newtype PasswordHasher env = PasswordHasher
+  { _hashPassword :: PlainPassword -> RIO env HashedPassword
+  }
 
-makeLenses ''AuthHandler
+makeLenses ''PasswordHasher
+
+class ViewPasswordHasher env where
+  passwordHasherV :: SimpleGetter env (PasswordHasher env)

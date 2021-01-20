@@ -36,4 +36,22 @@ userRepositoryImpl =
       case r of
         [user] -> pure $ Just user
         [] -> pure Nothing
-        _ -> error $ "multiple users are found the same user_name: " ++ show username
+        _ -> error $ "multiple users are found for the same user_name: " ++ show username
+
+authRepositoryImpl :: (ViewDatabase env) => AuthRepository env
+authRepositoryImpl =
+  AuthRepository
+    { _findPasswordAuthByUserName = findPassword,
+      _upsertPasswordAuth = undefined
+    }
+  where
+    findPasswordSql =
+      "SELECT u.user_id, u.user_name, a.hashed_password"
+        <> " FROM user u INNER JOIN auth_password a"
+        <> " ON u.user_id = a.user_id AND u.user_name = ?"
+    findPassword usernm = do
+      rows <- invoke (databaseV . query) findPasswordSql (Only usernm)
+      case rows of
+        [user :. Only passwd] -> pure $ Just $ PasswordAuth user passwd
+        [] -> pure Nothing
+        _ -> error $ "multiple passwords are found for the same username: " ++ show usernm
