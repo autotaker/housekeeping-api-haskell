@@ -42,7 +42,7 @@ authRepositoryImpl :: (ViewDatabase env) => AuthRepository env
 authRepositoryImpl =
   AuthRepository
     { _findPasswordAuthByUserName = findPassword,
-      _upsertPasswordAuth = undefined
+      _upsertPasswordAuth = upsertPassword
     }
   where
     findPasswordSql =
@@ -55,3 +55,13 @@ authRepositoryImpl =
         [user :. Only passwd] -> pure $ Just $ PasswordAuth user passwd
         [] -> pure Nothing
         _ -> error $ "multiple passwords are found for the same username: " ++ show usernm
+    upsertPasswordSql =
+      "INSERT INTO auth_password (user_id, hashed_password)"
+        <> " VALUES (?, ?)"
+        <> " ON CONFLICT (user_id)"
+        <> " DO UPDATE SET hashed_password = EXCLUDED.hashed_password,"
+        <> " updated_at = CURRENT_TIMESTAMP"
+    upsertPassword auth = do
+      let userid = auth ^. passwordAuthUser . userId
+          passwd = auth ^. passwordAuthPass
+      void $ invoke (databaseV . execute) upsertPasswordSql (userid, passwd)

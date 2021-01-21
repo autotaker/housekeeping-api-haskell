@@ -10,6 +10,7 @@ import Database.PostgreSQL.Simple.FromField (FromField)
 import Lens.Micro.Platform (makeLenses)
 import RIO (ByteString, Generic, Text)
 import Servant.Auth.Server (FromJWT, ToJWT)
+import Database.PostgreSQL.Simple.ToField (ToField)
 
 type UserId = Int
 
@@ -19,7 +20,7 @@ newtype PlainPassword = PlainPassword ByteString
   deriving (Eq, Ord, Show)
 
 newtype HashedPassword = HashedPassword ByteString
-  deriving (Eq, Ord, Show, FromField)
+  deriving (Eq, Ord, Show, FromField, ToField)
 
 data User = User {_userName :: UserName, _userId :: UserId}
   deriving (Show, Eq, Ord, Generic)

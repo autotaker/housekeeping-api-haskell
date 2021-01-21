@@ -1,36 +1,38 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Housekeeping.Service.Auth.RepositorySpec where
 
 import Control.Method
 import qualified Crypto.BCrypt as BCrypt
+import Data.Dynamic (toDyn)
 import Data.Maybe (fromJust)
+import Database.PostgreSQL.Simple (Query)
 import Housekeeping.DataSource
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
 import Housekeeping.Service.Auth.Repository
 import Housekeeping.TestHelper
 import Lens.Micro.Platform
-import RIO (ByteString, runRIO)
+import RIO (ByteString, MonadReader (local), RIO, runRIO)
 import Test.Hspec
 import Test.Method
 
-data Env = Env
-  { _database :: Database Env,
-    _passwordHasher :: PasswordHasher Env
-  }
+newtype Env = Env
+  {_database :: Database Env}
 
 makeLenses ''Env
 
 instance ViewDatabase Env where
   databaseV = database
 
+instance HasDatabase Env where
+  databaseL = database
+
 instance ViewUserRepository Env where
   userRepositoryV = to $ const userRepositoryImpl
 
 instance ViewAuthRepository Env where
   authRepositoryV = to $ const authRepositoryImpl
-
-instance ViewPasswordHasher Env where
-  passwordHasherV = passwordHasher
 
 user1 :: User
 user1 = User "user1" 0
@@ -64,20 +66,14 @@ databaseMock =
         when (args ((== selectPasswordSql), dynEq (Only ("same_user" :: UserName))))
           `thenReturn` [dyn (User "same_user" 1 :. Only password1), dyn (User "same_user" 1 :. Only password1)],
       _query_ = undefined,
-      _execute = undefined,
+      _execute = mockup $ do
+        when anything `thenReturn` 0,
       _execute_ = undefined,
       _returning = undefined
     }
 
-passwordHasherMock :: PasswordHasher Env
-passwordHasherMock =
-  PasswordHasher
-    { _hashPassword = \(PlainPassword password) ->
-        pure $ HashedPassword $ fromJust $ BCrypt.hashPassword password mockSalt
-    }
-
 env :: Env
-env = Env databaseMock passwordHasherMock
+env = Env databaseMock
 
 mockSalt :: ByteString
 mockSalt = "$2y$04$akDsXE7raEDxa1btakPxWO"
@@ -122,6 +118,17 @@ spec = do
       context "when multiple passwords are registered" $ do
         it "throws error" $
           run "same_user" `shouldThrow` anyErrorCall
+    describe "upsertPasswordAuth" $ do
+      it "execute upsert query" $ do
+        let auth = PasswordAuth user1 password1
+        logs <- runRIO env $
+          withMonitor_ $ \monitor ->
+            local (databaseL %~ (\db -> db {_execute = watchBy toDyn id monitor $ _execute db})) $ do
+              invoke (authRepositoryV . upsertPasswordAuth) auth
+        logs
+          `shouldSatisfy` (== 1)
+            `times` callDyn @(Args (Query -> (UserId, HashedPassword) -> RIO Env ()))
+              (args (anything, (== (0, password1))))
 
 password1 :: HashedPassword
 password1 = HashedPassword $ fromJust $ BCrypt.hashPassword "password1" mockSalt
