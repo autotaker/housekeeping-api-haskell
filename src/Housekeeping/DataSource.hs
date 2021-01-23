@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -21,6 +22,7 @@ module Housekeeping.DataSource
     Only (..),
     (:.) (..),
     databaseImpl,
+    Transactional (..),
   )
 where
 
@@ -34,7 +36,18 @@ import Lens.Micro.Platform (SimpleGetter, makeLenses, (?~))
 import RIO (Int64, Lens', MonadIO (liftIO), MonadReader (local), RIO, Typeable, bracket, bracketOnError_, view)
 
 class HasConnectionPool env where
-  connectionPoolL :: Lens' env (Pool Connection)
+  type IConnection env
+  connectionPoolL :: Lens' env (Pool (IConnection env))
+
+class Transactional conn where
+  begin :: conn -> IO ()
+  commit :: conn -> IO ()
+  rollback :: conn -> IO ()
+
+instance Transactional Connection where
+  begin = Sql.begin
+  commit = Sql.commit
+  rollback = Sql.rollback
 
 data Database env = Database
   { _query :: forall q r. (Typeable q, ToRow q, Typeable r, FromRow r) => Query -> q -> RIO env [r],
@@ -67,19 +80,18 @@ class HasDatabase env where
 class ViewDatabase env where
   databaseV :: SimpleGetter env (Database env)
 
-newtype TransactionManager = TransactionManager
-  { _currentTransaction :: Maybe Connection
-  }
+newtype TransactionManager conn = TransactionManager
+  {_currentTransaction :: Maybe conn}
 
 makeLenses ''TransactionManager
 
-defaultTransactionManager :: TransactionManager
+defaultTransactionManager :: TransactionManager env
 defaultTransactionManager = TransactionManager Nothing
 
-class HasConnectionPool env => HasTransactionManager env where
-  transactionManagerL :: Lens' env TransactionManager
+class (HasConnectionPool env, Transactional (IConnection env)) => HasTransactionManager env where
+  transactionManagerL :: Lens' env (TransactionManager (IConnection env))
 
-withConnection :: HasTransactionManager env => ((Connection -> RIO env a) -> RIO env a)
+withConnection :: (HasTransactionManager env) => ((IConnection env -> RIO env a) -> RIO env a)
 withConnection action = do
   mConn <- view (transactionManagerL . currentTransaction)
   case mConn of
@@ -95,18 +107,19 @@ withConnection action = do
 transactional ::
   ( Method method,
     Base method ~ RIO env,
-    HasTransactionManager env
+    HasTransactionManager env,
+    Transactional (IConnection env)
   ) =>
   method ->
   method
 transactional method = curryMethod $ \args ->
   withConnection $ \conn ->
-    bracketOnError_ (liftIO $ Sql.begin conn) (liftIO $ Sql.rollback conn) $ do
+    bracketOnError_ (liftIO $ begin conn) (liftIO $ rollback conn) $ do
       a <- local (transactionManagerL . currentTransaction ?~ conn) $ uncurryMethod method args
-      liftIO $ Sql.commit conn
+      liftIO $ commit conn
       pure a
 
-databaseImpl :: HasTransactionManager env => Database env
+databaseImpl :: (HasTransactionManager env, IConnection env ~ Connection) => Database env
 databaseImpl =
   Database
     { _query = \sql q -> withConnection (\conn -> liftIO $ Sql.query conn sql q),

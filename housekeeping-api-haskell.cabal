@@ -44,6 +44,7 @@ common shared-properties
     , rio                  ^>=0.1.19.0
     , servant-auth-server  ^>=0.4.6.0
     , servant-server       ^>=0.18.2
+    , transformers
     , wai                  ^>=3.2.2.1
     , warp                 ^>=3.3
 
@@ -59,6 +60,7 @@ library
     Housekeeping.CLI
     Housekeeping.DataSource
     Housekeeping.Service.Auth.Controller
+    Housekeeping.Service.Auth.Handler
     Housekeeping.Service.Auth.Interface
     Housekeeping.Service.Auth.Model
     Housekeeping.Service.Auth.Repository
@@ -95,6 +97,7 @@ test-suite housekeeping-api-haskell-test
   other-modules:
     Housekeeping.CLISpec
     Housekeeping.Service.Auth.ControllerSpec
+    Housekeeping.Service.Auth.HandlerSpec
     Housekeeping.Service.Auth.RepositorySpec
     Housekeeping.Service.Hello.ControllerSpec
     Housekeeping.Service.Hello.HandlerSpec

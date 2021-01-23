@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.API
@@ -13,12 +14,13 @@ where
 import Control.Monad.Except
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Connection)
-import Housekeeping.DataSource (databaseImpl, HasConnectionPool (..), HasTransactionManager (..), TransactionManager, ViewDatabase (..))
+import Housekeeping.DataSource (HasConnectionPool (..), HasTransactionManager (..), TransactionManager, ViewDatabase (..), databaseImpl)
 import qualified Housekeeping.Service.Hello as Hello
 import Lens.Micro.Platform
 import RIO
   ( HasLogFunc (..),
     LogFunc,
+    RIO,
     catch,
     runRIO,
   )
@@ -29,7 +31,7 @@ type API = "hello" :> Hello.API
 data Env = Env
   { _logFunc :: LogFunc,
     _connectionPool :: Pool Connection,
-    _transactionManager :: TransactionManager
+    _transactionManager :: TransactionManager Connection
   }
 
 makeLenses ''Env
@@ -38,6 +40,7 @@ instance HasLogFunc Env where
   logFuncL = logFunc
 
 instance HasConnectionPool Env where
+  type IConnection Env = Connection
   connectionPoolL = connectionPool
 
 instance HasTransactionManager Env where
@@ -52,6 +55,7 @@ api = Proxy
 app :: Env -> Application
 app env = serve api $ hoistServer api nt Hello.server
   where
+    nt :: RIO Env a -> Handler a
     nt action =
       Handler $
         ExceptT $

@@ -37,6 +37,7 @@ inheritL :: Lens' (HelloEnv env) env
 inheritL = lens inherit (\x y -> x {inherit = y})
 
 instance HasConnectionPool env => HasConnectionPool (HelloEnv env) where
+  type IConnection (HelloEnv env) = IConnection env
   connectionPoolL = inheritL . connectionPoolL
 
 instance HasTransactionManager env => HasTransactionManager (HelloEnv env) where

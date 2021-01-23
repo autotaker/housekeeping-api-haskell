@@ -27,6 +27,9 @@ makeLenses ''AuthHandler
 class HasAuthHandler env where
   authHandlerL :: Lens' env (AuthHandler env)
 
+class ViewAuthHandler env where
+  authHandlerV :: SimpleGetter env (AuthHandler env)
+
 data AuthConfig = AuthConfig
   { _cookieSettings :: CookieSettings,
     _jwtSettings :: JWTSettings
