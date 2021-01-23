@@ -4,6 +4,8 @@
 module Housekeeping.Service.Auth.HandlerSpec where
 
 import Control.Method (invoke)
+import qualified Crypto.BCrypt as BCrypt
+import Data.Maybe (fromJust)
 import Data.Pool
 import Housekeeping.DataSource
 import Housekeeping.Service.Auth.Handler
@@ -11,6 +13,7 @@ import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
 import Lens.Micro.Platform
 import RIO (ByteString, MonadReader (local), runRIO, void)
+import Servant.Auth.Server
 import Test.Hspec
 import Test.Method
 
@@ -46,10 +49,21 @@ passwordHasherMock =
 mockSalt :: ByteString
 mockSalt = "$2y$04$akDsXE7raEDxa1btakPxWO"
 
+password1 :: PlainPassword
+password1 = PlainPassword "password1"
+
+hashedPassword1 :: HashedPassword
+hashedPassword1 = HashedPassword $ fromJust $ BCrypt.hashPassword "password1" mockSalt
+
+auth1 :: PasswordAuth
+auth1 = PasswordAuth user1 hashedPassword1
+
 authRepositoryMock :: AuthRepository Env
 authRepositoryMock =
   AuthRepository
-    { _findPasswordAuthByUserName = undefined,
+    { _findPasswordAuthByUserName = mockup $ do
+        when (args (== "user1")) `thenReturn` Just auth1
+        when anything `thenReturn` Nothing,
       _upsertPasswordAuth = mockup $ do
         when anything `thenReturn` ()
     }
@@ -136,3 +150,20 @@ spec = do
               void $ invoke (authHandlerV . signupHandler) "user1" (PlainPassword "password1")
         logs `shouldSatisfy` (== 0)
           `times` call anything
+
+  describe "signinHandler" $ do
+    let run usernm passwd =
+          runRIO (env pool) $
+            invoke (authHandlerV . signinHandler) usernm passwd
+    context "when both username and password are correct" $ do
+      it "returns `Authenticated user`" $ do
+        user <- run "user1" (PlainPassword "password1")
+        user `shouldBe` Authenticated user1
+    context "when username is not registered" $ do
+      it "returns `NoSuchUser`" $ do
+        user <- run "user2" (PlainPassword "password2")
+        user `shouldBe` NoSuchUser
+    context "when password is wrong" $ do
+      it "returns `BadPassword`" $ do
+        user <- run "user1" (PlainPassword "password2")
+        user `shouldBe` BadPassword
