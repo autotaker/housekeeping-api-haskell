@@ -32,14 +32,16 @@ signupHandlerImpl ::
   UserName ->
   PlainPassword ->
   RIO env (Maybe User)
-signupHandlerImpl = transactional $ \usernm passwd -> runMaybeT $ do
+signupHandlerImpl usernm passwd = runMaybeT $ do
   mUser <- lift $ invoke (userRepositoryV . findUserByUserName) usernm
   guard $ isNothing mUser
-  user <- lift $ invoke (userRepositoryV . createUser) $ User {_userName = usernm, _userId = -1}
-  hashedPasswd <- lift $ invoke (passwordHasherV . hashPassword) passwd
-  let auth = PasswordAuth user hashedPasswd
-  lift $ invoke (authRepositoryV . upsertPasswordAuth) auth
-  pure user
+  lift $
+    transactional $ do
+      user <- invoke (userRepositoryV . createUser) $ User {_userName = usernm, _userId = -1}
+      hashedPasswd <- invoke (passwordHasherV . hashPassword) passwd
+      let auth = PasswordAuth user hashedPasswd
+      invoke (authRepositoryV . upsertPasswordAuth) auth
+      pure user
 
 signinHandlerImpl ::
   ViewAuthRepository env =>

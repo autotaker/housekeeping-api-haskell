@@ -12,7 +12,7 @@ import Housekeeping.Service.Auth.Handler
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
 import Lens.Micro.Platform
-import RIO (ByteString, MonadReader (local), runRIO, void)
+import RIO (ByteString, IORef, MonadIO (liftIO), MonadReader (local), newIORef, readIORef, runRIO, throwString, tryAny, void, writeIORef)
 import Servant.Auth.Server
 import Test.Hspec
 import Test.Method
@@ -25,7 +25,10 @@ data Env = Env
     _connectionPool :: Pool MockConnection
   }
 
-data MockConnection = MockConnection
+newtype MockConnection = MockConnection (IORef TransactionState)
+
+data TransactionState = AutoCommit | Begin | Commit | Rollback
+  deriving (Eq, Ord, Show)
 
 makeLenses ''Env
 
@@ -65,6 +68,8 @@ authRepositoryMock =
         when (args (== "user1")) `thenReturn` Just auth1
         when anything `thenReturn` Nothing,
       _upsertPasswordAuth = mockup $ do
+        when (args ((== "error") . view (passwordAuthUser . userName)))
+          `thenAction` throwString "error"
         when anything `thenReturn` ()
     }
 
@@ -74,8 +79,8 @@ userRepositoryMock =
     { _findUserByUserName = mockup $ do
         when (args (== "user1")) `thenReturn` Just user1
         when anything `thenReturn` Nothing,
-      _createUser = mockup $ do
-        when anything `thenReturn` user2
+      _createUser = \user ->
+        pure $ user {_userId = 1}
     }
 
 user1, user2 :: User
@@ -98,9 +103,9 @@ instance HasTransactionManager Env where
   transactionManagerL = transactionManager
 
 instance Transactional MockConnection where
-  begin _ = pure ()
-  commit _ = pure ()
-  rollback _ = pure ()
+  begin (MockConnection ref) = writeIORef ref Begin
+  commit (MockConnection ref) = writeIORef ref Commit
+  rollback (MockConnection ref) = writeIORef ref Rollback
 
 instance HasConnectionPool Env where
   type IConnection Env = MockConnection
@@ -108,7 +113,7 @@ instance HasConnectionPool Env where
 
 spec :: Spec
 spec = do
-  pool <- runIO $ createPool (pure MockConnection) (const $ pure ()) 1 0.5 1
+  pool <- runIO $ createPool (MockConnection <$> newIORef AutoCommit) (const $ pure ()) 1 100 1
   describe "signupHandler" $ do
     context "when the username is not registered yet" $ do
       let run usernm passwd =
@@ -130,6 +135,13 @@ spec = do
               void $ invoke (authHandlerV . signupHandler) "user2" (PlainPassword "password2")
         logs `shouldSatisfy` (== 1)
           `times` call (args (== PasswordAuth {_passwordAuthUser = user2, _passwordAuthPass = HashedPassword "HASHED_PASSWORD"}))
+      it "commits transaction" $ do
+        st <- runRIO (env pool) $ do
+          void $ invoke (authHandlerV . signupHandler) "user2" (PlainPassword "password2")
+          withConnection $ \(MockConnection ref) ->
+            liftIO $ readIORef ref
+        st `shouldBe` Commit
+
     context "when the username is already registered" $ do
       let run usernm passwd =
             runRIO (env pool) $
@@ -150,6 +162,12 @@ spec = do
               void $ invoke (authHandlerV . signupHandler) "user1" (PlainPassword "password1")
         logs `shouldSatisfy` (== 0)
           `times` call anything
+    context "when `upsertPasswordAuth` throws error" $ do
+      it "rollbacks the transaction" $ do
+        st <- runRIO (env pool) $ do
+          void $ tryAny $ invoke (authHandlerV . signupHandler) "error" (PlainPassword "password1")
+          withConnection $ \(MockConnection ref) -> readIORef ref
+        st `shouldBe` Rollback
 
   describe "signinHandler" $ do
     let run usernm passwd =
