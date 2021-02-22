@@ -36,7 +36,7 @@ common shared-properties
     , http-api-data
     , http-types
     , jose
-    , method               ^>=0.2.0.0
+    , method               ^>=0.3.0.0
     , microlens-platform   ^>=0.4.2
     , mtl
     , postgresql-simple    ^>=0.6.3
@@ -102,7 +102,6 @@ test-suite housekeeping-api-haskell-test
     Housekeeping.Service.Hello.ControllerSpec
     Housekeeping.Service.Hello.HandlerSpec
     Housekeeping.Service.Hello.RepositorySpec
-    Housekeeping.TestHelper
 
   build-depends:
     , base                      ^>=4.13.0.0

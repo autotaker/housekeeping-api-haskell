@@ -1,19 +1,19 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Auth.RepositorySpec where
 
 import Control.Method
+import Control.Method.Internal
 import qualified Crypto.BCrypt as BCrypt
-import Data.Dynamic (toDyn)
 import Data.Maybe (fromJust)
 import Database.PostgreSQL.Simple (Query)
 import Housekeeping.DataSource
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
 import Housekeeping.Service.Auth.Repository
-import Housekeeping.TestHelper
 import Lens.Micro.Platform
-import RIO (ByteString, MonadReader (local), RIO, runRIO)
+import RIO (ByteString, Int64, MonadReader (local), RIO, runRIO)
 import Test.Hspec
 import Test.Method
 
@@ -40,37 +40,40 @@ user1 = User "user1" 0
 databaseMock :: Database Env
 databaseMock =
   Database
-    { _query = mockup $ do
-        let sql = "SELECT user_name, user_id FROM user WHERE user_name = ?"
-        when (args ((== sql), dynEq (Only ("user1" :: UserName))))
-          `thenReturn` [dyn user1]
-        when (args ((== sql), dynEq (Only ("same_user" :: UserName))))
-          `thenReturn` [dyn (User "same_user" 1), dyn (User "same_user" 2)]
-        when (args ((== sql), anything))
-          `thenReturn` []
-        let createUserSql = "INSERT INTO user (user_name) VALUES (?) RETURNING user_id"
-        when (args ((== createUserSql), dynEq (Only ("user2" :: UserName))))
-          `thenReturn` [dyn $ Only (2 :: Int)]
-        when (args ((== createUserSql), dynEq (Only ("broken_user" :: UserName))))
-          `thenReturn` []
-
-        let selectPasswordSql =
-              "SELECT u.user_id, u.user_name, a.hashed_password FROM"
-                <> " user u INNER JOIN auth_password a"
-                <> " ON u.user_id = a.user_id"
-                <> " AND u.user_name = ?"
-        when (args ((== selectPasswordSql), dynEq (Only ("user1" :: UserName))))
-          `thenReturn` [dyn $ user1 :. Only password1]
-        when (args ((== selectPasswordSql), dynEq (Only ("user2" :: UserName))))
-          `thenReturn` []
-        when (args ((== selectPasswordSql), dynEq (Only ("same_user" :: UserName))))
-          `thenReturn` [dyn (User "same_user" 1 :. Only password1), dyn (User "same_user" 1 :. Only password1)],
+    { _query = castMethod queryDyn,
       _query_ = undefined,
       _execute = mockup $ do
         when anything `thenReturn` 0,
       _execute_ = undefined,
       _returning = undefined
     }
+  where
+    queryDyn :: Query -> Dynamic -> RIO Env [Dynamic]
+    queryDyn = mockup $ do
+      let sql = "SELECT user_name, user_id FROM user WHERE user_name = ?"
+      when (args ((== sql), dynArg (== Only ("user1" :: UserName))))
+        `thenReturn` toDyn [user1]
+      when (args ((== sql), dynArg (== Only ("same_user" :: UserName))))
+        `thenReturn` toDyn [User "same_user" 1, User "same_user" 2]
+      when (args ((== sql), anything))
+        `thenReturn` []
+      let createUserSql = "INSERT INTO user (user_name) VALUES (?) RETURNING user_id"
+      when (args ((== createUserSql), dynArg (== Only ("user2" :: UserName))))
+        `thenReturn` toDyn [Only (2 :: Int)]
+      when (args ((== createUserSql), dynArg (== Only ("broken_user" :: UserName))))
+        `thenReturn` []
+
+      let selectPasswordSql =
+            "SELECT u.user_id, u.user_name, a.hashed_password FROM"
+              <> " user u INNER JOIN auth_password a"
+              <> " ON u.user_id = a.user_id"
+              <> " AND u.user_name = ?"
+      when (args ((== selectPasswordSql), dynArg (== Only ("user1" :: UserName))))
+        `thenReturn` toDyn [user1 :. Only password1]
+      when (args ((== selectPasswordSql), dynArg (== Only ("user2" :: UserName))))
+        `thenReturn` []
+      when (args ((== selectPasswordSql), dynArg (== Only ("same_user" :: UserName))))
+        `thenReturn` toDyn [User "same_user" 1 :. Only password1, User "same_user" 1 :. Only password1]
 
 env :: Env
 env = Env databaseMock
@@ -125,10 +128,9 @@ spec = do
           withMonitor_ $ \monitor ->
             local (databaseL %~ (\db -> db {_execute = watchBy toDyn id monitor $ _execute db})) $ do
               invoke (authRepositoryV . upsertPasswordAuth) auth
-        logs
+        (logs :: [Event (Query :* Dynamic :* Nil) Int64])
           `shouldSatisfy` (== 1)
-            `times` callDyn @(Args (Query -> (UserId, HashedPassword) -> RIO Env ()))
-              (args (anything, (== (0, password1))))
+            `times` call (args (anything, dynArg (== (0 :: UserId, password1))))
 
 password1 :: HashedPassword
 password1 = HashedPassword $ fromJust $ BCrypt.hashPassword "password1" mockSalt
