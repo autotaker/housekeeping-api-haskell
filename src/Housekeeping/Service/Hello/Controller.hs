@@ -11,13 +11,13 @@ module Housekeeping.Service.Hello.Controller
   )
 where
 
-import Control.Method (invoke)
+import Control.Env.Hierarchical
 import Data.Aeson (FromJSON, ToJSON)
+import Housekeeping.Prelude (view)
 import Housekeeping.Service.Hello.Interface
-  ( ViewHelloHandler (helloHandlerV),
+  (helloHandler,  HelloHandler,
     errorHandler,
     fatalHandler,
-    helloHandler,
     insertHandler,
     selectHandler,
     worldHandler,
@@ -61,14 +61,14 @@ type API =
     :<|> "message" :> ReqBody '[JSON, FormUrlEncoded] MessageForm
       :> Post '[JSON] ()
 
-server :: ViewHelloHandler env => ServerT API (RIO env)
+server :: Has1 HelloHandler env => ServerT API (RIO env)
 server =
-  invoke (helloHandlerV . helloHandler)
-    :<|> invoke (helloHandlerV . worldHandler)
-    :<|> invoke (helloHandlerV . errorHandler)
-    :<|> invoke (helloHandlerV . fatalHandler)
-    :<|> invoke (helloHandlerV . selectHandler)
-    :<|> invoke (helloHandlerV . insertHandler) . message
+  runIF (view helloHandler)
+    :<|> runIF (view worldHandler)
+    :<|> runIF (view errorHandler)
+    :<|> runIF (view fatalHandler)
+    :<|> runIF (view selectHandler)
+    :<|> (\msg -> runIF (\h -> view insertHandler h $ message msg))
 
 api :: Proxy API
 api = Proxy

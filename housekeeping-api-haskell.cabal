@@ -33,10 +33,11 @@ common shared-properties
     , aeson
     , base                 ^>=4.13.0.0
     , bcrypt               ^>=0.0.11
+    , hierarchical-env     ^>=0.2.0.0
     , http-api-data
     , http-types
     , jose
-    , method               ^>=0.3.0.0
+    , method               ^>=0.4.0.0
     , microlens-platform   ^>=0.4.2
     , mtl
     , postgresql-simple    ^>=0.6.3
@@ -59,6 +60,7 @@ library
     Housekeeping.Cascade
     Housekeeping.CLI
     Housekeeping.DataSource
+    Housekeeping.Prelude
     Housekeeping.Service.Auth.Controller
     Housekeeping.Service.Auth.Handler
     Housekeeping.Service.Auth.Interface

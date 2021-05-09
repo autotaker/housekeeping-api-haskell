@@ -1,12 +1,14 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Housekeeping.Service.Auth.Repository where
 
-import Control.Method
+import Control.Env.Hierarchical
 import Housekeeping.DataSource
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
 import RIO
 
-userRepositoryImpl :: ViewDatabase env => UserRepository env
+userRepositoryImpl :: Has1 Database env => UserRepository env
 userRepositoryImpl =
   UserRepository
     { _findUserByUserName = findUser,
@@ -14,9 +16,10 @@ userRepositoryImpl =
     }
   where
     create user = do
-      r <-
-        invoke
-          (databaseV . query)
+      r <- runIF $ \db ->
+        view
+          query
+          db
           "INSERT INTO user (user_name) VALUES (?) RETURNING user_id"
           (Only $ user ^. userName)
       case r of
@@ -28,9 +31,10 @@ userRepositoryImpl =
               ++ ", returning = "
               ++ show rows
     findUser username = do
-      r <-
-        invoke
-          (databaseV . query)
+      r <- runIF $ \db ->
+        view
+          query
+          db
           "SELECT user_name, user_id FROM user WHERE user_name = ?"
           (Only username)
       case r of
@@ -38,7 +42,7 @@ userRepositoryImpl =
         [] -> pure Nothing
         _ -> error $ "multiple users are found for the same user_name: " ++ show username
 
-authRepositoryImpl :: (ViewDatabase env) => AuthRepository env
+authRepositoryImpl :: (Has1 Database env) => AuthRepository env
 authRepositoryImpl =
   AuthRepository
     { _findPasswordAuthByUserName = findPassword,
@@ -49,8 +53,8 @@ authRepositoryImpl =
       "SELECT u.user_id, u.user_name, a.hashed_password"
         <> " FROM user u INNER JOIN auth_password a"
         <> " ON u.user_id = a.user_id AND u.user_name = ?"
-    findPassword usernm = do
-      rows <- invoke (databaseV . query) findPasswordSql (Only usernm)
+    findPassword usernm = runIF $ \db -> do
+      rows <- view query db findPasswordSql (Only usernm)
       case rows of
         [user :. Only passwd] -> pure $ Just $ PasswordAuth user passwd
         [] -> pure Nothing
@@ -64,4 +68,4 @@ authRepositoryImpl =
     upsertPassword auth = do
       let userid = auth ^. passwordAuthUser . userId
           passwd = auth ^. passwordAuthPass
-      void $ invoke (databaseV . execute) upsertPasswordSql (userid, passwd)
+      void $ runIF $ \db -> view execute db upsertPasswordSql (userid, passwd)

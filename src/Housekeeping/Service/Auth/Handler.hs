@@ -1,19 +1,19 @@
 module Housekeeping.Service.Auth.Handler where
 
-import Control.Method (invoke)
+import Control.Env.Hierarchical
 import Control.Monad.Trans.Maybe
 import qualified Crypto.BCrypt as BCrypt
 import Data.Coerce (coerce)
 import Housekeeping.DataSource (HasTransactionManager, transactional)
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
-import RIO (MonadTrans (lift), RIO, guard, isNothing, (^.))
+import RIO (MonadTrans (lift), RIO, guard, isNothing, view, (^.))
 import Servant.Auth.Server (AuthResult (Authenticated, BadPassword, NoSuchUser))
 
 authHandlerImpl ::
-  ( ViewUserRepository env,
-    ViewAuthRepository env,
-    ViewPasswordHasher env,
+  ( Has1 UserRepository env,
+    Has1 AuthRepository env,
+    Has1 PasswordHasher env,
     HasTransactionManager env
   ) =>
   AuthHandler env
@@ -24,32 +24,33 @@ authHandlerImpl =
     }
 
 signupHandlerImpl ::
-  ( ViewAuthRepository env,
-    ViewUserRepository env,
-    ViewPasswordHasher env,
+  ( Has1 AuthRepository env,
+    Has1 UserRepository env,
+    Has1 PasswordHasher env,
     HasTransactionManager env
   ) =>
   UserName ->
   PlainPassword ->
   RIO env (Maybe User)
 signupHandlerImpl usernm passwd = runMaybeT $ do
-  mUser <- lift $ invoke (userRepositoryV . findUserByUserName) usernm
+  mUser <- lift $ runIF (\repo -> view findUserByUserName repo usernm)
   guard $ isNothing mUser
   lift $
     transactional $ do
-      user <- invoke (userRepositoryV . createUser) $ User {_userName = usernm, _userId = -1}
-      hashedPasswd <- invoke (passwordHasherV . hashPassword) passwd
+      user <- runIF $ \repo ->
+        view createUser repo $ User {_userName = usernm, _userId = -1}
+      hashedPasswd <- runIF $ \hasher -> view hashPassword hasher passwd
       let auth = PasswordAuth user hashedPasswd
-      invoke (authRepositoryV . upsertPasswordAuth) auth
+      runIF $ \repo -> view upsertPasswordAuth repo auth
       pure user
 
 signinHandlerImpl ::
-  ViewAuthRepository env =>
+  Has1 AuthRepository env =>
   UserName ->
   PlainPassword ->
   RIO env (AuthResult User)
 signinHandlerImpl usernm passwd = do
-  mAuth <- invoke (authRepositoryV . findPasswordAuthByUserName) usernm
+  mAuth <- runIF (\repo -> view findPasswordAuthByUserName repo usernm)
   case mAuth of
     Nothing -> pure NoSuchUser
     Just auth

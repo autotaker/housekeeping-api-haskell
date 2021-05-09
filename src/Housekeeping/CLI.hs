@@ -5,11 +5,10 @@ module Housekeeping.CLI (main, formatAccessLog) where
 import Data.Pool
 import Database.PostgreSQL.Simple
 import Housekeeping.API
-import Housekeeping.DataSource (defaultTransactionManager)
+import Housekeeping.Prelude
 import Network.HTTP.Types.Status
 import Network.Wai
 import Network.Wai.Handler.Warp
-import RIO
 import qualified RIO.List as L
 import System.Environment (lookupEnv)
 
@@ -65,12 +64,7 @@ main = do
   logOptions <- setLogUseTime True <$> logOptionsHandle stderr True
   withLogFunc logOptions $ \lf -> do
     ds <- mkDataSource
-    let env =
-          Env
-            { _connectionPool = ds,
-              _logFunc = lf,
-              _transactionManager = defaultTransactionManager
-            }
+    let env = mkEnv lf ds
     runRIO env $ logInfo "Server started"
     let warpLogger req status mFileSize =
           runRIO env $ logInfo $ formatAccessLog req status mFileSize

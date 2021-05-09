@@ -6,24 +6,21 @@
 module Housekeeping.Service.Hello.Handler
   ( helloHandlerImpl,
     HelloRepository (..),
-    HasHelloRepository (..),
   )
 where
 
-import Control.Method
+import Control.Env.Hierarchical
+import Housekeeping.Prelude
 import Housekeeping.Service.Hello.Interface
-  ( HasHelloRepository (..),
-    HelloHandler (..),
+  ( HelloHandler (..),
     HelloRepository (..),
-    ViewHelloRepository (..),
     insertMessage,
     selectMessage,
   )
 import Housekeeping.Service.Hello.Model (Hello (..))
-import RIO
 import Servant.Server
 
-helloHandlerImpl :: (HasLogFunc env, ViewHelloRepository env) => HelloHandler env
+helloHandlerImpl :: (Has LogFunc env, Has1 HelloRepository env) => HelloHandler env
 helloHandlerImpl =
   HelloHandler
     { _helloHandler = helloImpl,
@@ -34,32 +31,32 @@ helloHandlerImpl =
       _insertHandler = insertImpl
     }
 
-insertImpl :: (HasCallStack, HasLogFunc env, ViewHelloRepository env) => Text -> RIO env ()
+insertImpl :: (Has LogFunc env, Has1 HelloRepository env) => Text -> RIO env ()
 insertImpl msg = do
   logInfo $ "insert message: " <> display msg
-  invoke (helloRepositoryV . insertMessage) msg
+  runIF (\h -> view insertMessage h msg)
 
-selectImpl :: (HasCallStack, HasLogFunc env, ViewHelloRepository env) => RIO env [Text]
+selectImpl :: (Has LogFunc env, Has1 HelloRepository env) => RIO env [Text]
 selectImpl = do
   logInfo "select message"
-  invoke (helloRepositoryV . selectMessage)
+  runIF (view selectMessage)
 
-helloImpl :: (HasCallStack, HasLogFunc env) => RIO env Hello
+helloImpl :: (Has LogFunc env) => RIO env Hello
 helloImpl = do
   logInfo "GET Hello"
   pure Hello
 
-worldImpl :: (HasCallStack, HasLogFunc env) => RIO env Hello
+worldImpl :: (Has LogFunc env) => RIO env Hello
 worldImpl = do
   logInfo "GET World"
   pure World
 
-errorImpl :: (HasCallStack, HasLogFunc env) => RIO env ()
+errorImpl :: (Has LogFunc env) => RIO env ()
 errorImpl = do
   logInfo "GET Error"
   throwIO err400
 
-fatalImpl :: (HasCallStack, HasLogFunc env) => RIO env ()
+fatalImpl :: (Has LogFunc env) => RIO env ()
 fatalImpl = do
   logInfo "GET Fatal"
   undefined

@@ -5,32 +5,32 @@ module Housekeeping.Service.Hello.Repository
   )
 where
 
-import Control.Method (invoke)
+import Control.Env.Hierarchical
 import Housekeeping.DataSource
-  ( Only (Only, fromOnly),
-    ViewDatabase (databaseV),
+  ( Database,
+    Only (Only, fromOnly),
     execute,
     query_,
   )
 import Housekeeping.Service.Hello.Handler
 import RIO
 
-selectMessageImpl :: ViewDatabase env => RIO env [Text]
+selectMessageImpl :: Has1 Database env => RIO env [Text]
 selectMessageImpl =
   map fromOnly
-    <$> invoke
-      (databaseV . query_)
-      "SELECT msg FROM message"
+    <$> runIF (\db -> view query_ db "SELECT msg FROM message")
 
-insertMessageImpl :: ViewDatabase env => Text -> RIO env ()
+insertMessageImpl :: Has1 Database env => Text -> RIO env ()
 insertMessageImpl msg =
   void $
-    invoke
-      (databaseV . execute)
-      "INSERT INTO message (msg) VALUES (?)"
-      (Only msg)
+    runIF $ \db ->
+      view
+        execute
+        db
+        "INSERT INTO message (msg) VALUES (?)"
+        (Only msg)
 
-helloRepositoryImpl :: ViewDatabase env => HelloRepository env
+helloRepositoryImpl :: Has1 Database env => HelloRepository env
 helloRepositoryImpl =
   HelloRepository
     { _insertMessage = insertMessageImpl,

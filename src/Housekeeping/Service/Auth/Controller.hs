@@ -8,12 +8,12 @@
 
 module Housekeeping.Service.Auth.Controller where
 
-import Control.Method (invoke)
+import Control.Env.Hierarchical
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Char (isAscii)
 import Housekeeping.Service.Auth.Interface
-  ( HasAuthConfig (..),
-    HasAuthHandler (..),
+  ( AuthConfig,
+    AuthHandler,
     cookieSettings,
     jwtSettings,
     signinHandler,
@@ -81,7 +81,7 @@ type AuthResponse a =
 api :: Proxy API
 api = Proxy
 
-server :: forall env. (HasAuthHandler env, HasAuthConfig env) => ServerT API (RIO env)
+server :: forall env. (Has1 AuthHandler env, Has AuthConfig env) => ServerT API (RIO env)
 server = signin :<|> signup :<|> signout
   where
     signin :: PasswordForm -> RIO env (AuthResponse User)
@@ -90,8 +90,8 @@ server = signin :<|> signup :<|> signout
           textPasswd = form ^. password
       unless (T.all isAscii textPasswd) $ throwM err400
       let passwd = PlainPassword $ encodeUtf8 textPasswd
-      config <- view authConfigL
-      res <- invoke (authHandlerL . signinHandler) usernm passwd
+      config <- view getL
+      res <- runIF $ \auth -> view signinHandler auth usernm passwd
       case res of
         Authenticated user -> do
           mAccept <- liftIO $ acceptLogin (config ^. cookieSettings) (config ^. jwtSettings) user
@@ -106,12 +106,12 @@ server = signin :<|> signup :<|> signout
           textPasswd = form ^. password
       unless (T.all isAscii textPasswd) $ throwM err400
       let passwd = PlainPassword $ encodeUtf8 textPasswd
-      mUser <- invoke (authHandlerL . signupHandler) usernm passwd
+      mUser <- runIF $ \auth -> view signupHandler auth usernm passwd
       case mUser of
         Just user -> pure user
         Nothing -> throwM err409 {errBody = "The user ID is already taken"}
 
     signout :: RIO env (AuthResponse ())
     signout = do
-      cookieCfg <- view $ authConfigL . cookieSettings
+      cookieCfg <- view $ getL . cookieSettings
       pure $ clearSession cookieCfg ()

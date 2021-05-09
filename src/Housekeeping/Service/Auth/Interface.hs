@@ -9,7 +9,7 @@ import Housekeeping.Service.Auth.Model
     User,
     UserName,
   )
-import Lens.Micro.Platform (Lens', SimpleGetter, makeLenses)
+import Lens.Micro.Platform (makeLenses)
 import RIO (RIO)
 import Servant.Auth.Server
   ( AuthResult,
@@ -23,12 +23,6 @@ data AuthHandler env = AuthHandler
   }
 
 makeLenses ''AuthHandler
-
-class HasAuthHandler env where
-  authHandlerL :: Lens' env (AuthHandler env)
-
-class ViewAuthHandler env where
-  authHandlerV :: SimpleGetter env (AuthHandler env)
 
 data AuthConfig = AuthConfig
   { _cookieSettings :: CookieSettings,
@@ -44,9 +38,6 @@ data UserRepository env = UserRepository
 
 makeLenses ''UserRepository
 
-class ViewUserRepository env where
-  userRepositoryV :: SimpleGetter env (UserRepository env)
-
 data AuthRepository env = AuthRepository
   { _findPasswordAuthByUserName :: UserName -> RIO env (Maybe PasswordAuth),
     _upsertPasswordAuth :: PasswordAuth -> RIO env ()
@@ -54,17 +45,8 @@ data AuthRepository env = AuthRepository
 
 makeLenses ''AuthRepository
 
-class ViewAuthRepository env where
-  authRepositoryV :: SimpleGetter env (AuthRepository env)
-
-class HasAuthConfig env where
-  authConfigL :: Lens' env AuthConfig
-
 newtype PasswordHasher env = PasswordHasher
   { _hashPassword :: PlainPassword -> RIO env HashedPassword
   }
 
 makeLenses ''PasswordHasher
-
-class ViewPasswordHasher env where
-  passwordHasherV :: SimpleGetter env (PasswordHasher env)

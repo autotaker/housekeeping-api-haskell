@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -8,18 +10,18 @@ module Housekeeping.API
     app,
     api,
     Env (..),
+    mkEnv,
   )
 where
 
+import Control.Env.Hierarchical
 import Control.Monad.Except
 import Data.Pool (Pool)
 import Database.PostgreSQL.Simple (Connection)
-import Housekeeping.DataSource (HasConnectionPool (..), HasTransactionManager (..), TransactionManager, ViewDatabase (..), databaseImpl)
+import Housekeeping.DataSource (Database, HasConnectionPool (..), HasTransactionManager (..), TransactionManager, databaseImpl, defaultTransactionManager)
 import qualified Housekeeping.Service.Hello as Hello
-import Lens.Micro.Platform
 import RIO
-  ( HasLogFunc (..),
-    LogFunc,
+  ( LogFunc,
     RIO,
     catch,
     runRIO,
@@ -28,26 +30,19 @@ import Servant
 
 type API = "hello" :> Hello.API
 
-data Env = Env
-  { _logFunc :: LogFunc,
-    _connectionPool :: Pool Connection,
-    _transactionManager :: TransactionManager Connection
-  }
+data Env = Env LogFunc (Pool Connection) (TransactionManager Connection) (Database Env)
 
-makeLenses ''Env
+mkEnv :: LogFunc -> Pool Connection -> Env
+mkEnv lf pool = Env lf pool defaultTransactionManager databaseImpl
 
-instance HasLogFunc Env where
-  logFuncL = logFunc
+deriveEnv ''Env
 
 instance HasConnectionPool Env where
   type IConnection Env = Connection
-  connectionPoolL = connectionPool
+  connectionPoolL = getL
 
 instance HasTransactionManager Env where
-  transactionManagerL = transactionManager
-
-instance ViewDatabase Env where
-  databaseV = to (const databaseImpl)
+  transactionManagerL = getL
 
 api :: Proxy API
 api = Proxy
