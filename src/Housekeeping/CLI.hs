@@ -1,7 +1,11 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Housekeeping.CLI (main, formatAccessLog) where
 
+import Control.Env.Hierarchical
 import Data.Pool
 import Database.PostgreSQL.Simple
 import Housekeeping.API
@@ -59,17 +63,20 @@ mkDataSource = do
   cInfo <- appConnectInfo
   createPool (connect cInfo) close 1 0.5 10
 
+newtype E = E LogFunc
+
+deriveEnv ''E
+
 main :: IO ()
 main = do
   logOptions <- setLogUseTime True <$> logOptionsHandle stderr True
   withLogFunc logOptions $ \lf -> do
     ds <- mkDataSource
-    let env = mkEnv lf ds
-    runRIO env $ logInfo "Server started"
+    runRIO (E lf) $ logInfo "Server started"
     let warpLogger req status mFileSize =
-          runRIO env $ logInfo $ formatAccessLog req status mFileSize
+          runRIO (E lf) $ logInfo $ formatAccessLog req status mFileSize
     let settings =
           defaultSettings
             & setLogger warpLogger
             & setPort 8080
-    runSettings settings (app env)
+    runSettings settings (app lf ds)

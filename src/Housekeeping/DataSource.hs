@@ -32,8 +32,8 @@ import Data.Pool (Pool, putResource, takeResource)
 import Database.PostgreSQL.Simple (Connection, FromRow, Only (..), Query, ToRow, (:.) (..))
 import qualified Database.PostgreSQL.Simple as Sql
 import Housekeeping.Cascade (mapEnvMethod)
-import Lens.Micro.Platform (SimpleGetter, makeLenses, (?~))
-import RIO (Int64, Lens', MonadIO (liftIO), MonadReader (local), RIO, Typeable, bracket, bracketOnError_, view)
+import Lens.Micro.Platform (SimpleGetter, makeLenses)
+import RIO (IORef, Int64, Lens', MonadIO (liftIO), RIO, Typeable, bracket, bracketOnError_, newIORef, readIORef, view, writeIORef)
 
 class HasConnectionPool env where
   type IConnection env
@@ -81,22 +81,24 @@ class ViewDatabase env where
   databaseV :: SimpleGetter env (Database env)
 
 newtype TransactionManager conn = TransactionManager
-  {_currentTransaction :: Maybe conn}
+  {_currentTransaction :: IORef (Maybe conn)}
 
 makeLenses ''TransactionManager
 
-defaultTransactionManager :: TransactionManager env
-defaultTransactionManager = TransactionManager Nothing
+defaultTransactionManager :: IO (TransactionManager env)
+defaultTransactionManager = TransactionManager <$> newIORef Nothing
 
 class (HasConnectionPool env, Transactional (IConnection env)) => HasTransactionManager env where
   transactionManagerL :: Lens' env (TransactionManager (IConnection env))
 
 withConnection :: (HasTransactionManager env) => ((IConnection env -> RIO env a) -> RIO env a)
 withConnection action = do
-  mConn <- view (transactionManagerL . currentTransaction)
+  mConnRef <- view (transactionManagerL . currentTransaction)
+  mConn <- readIORef mConnRef
   case mConn of
-    Just conn -> action conn
+    Just conn -> action conn -- transactional connection
     Nothing -> do
+      -- non-transactional connection
       pool <- view connectionPoolL
       bracket
         (liftIO $ takeResource pool)
@@ -115,7 +117,9 @@ transactional ::
 transactional method = curryMethod $ \args ->
   withConnection $ \conn ->
     bracketOnError_ (liftIO $ begin conn) (liftIO $ rollback conn) $ do
-      a <- local (transactionManagerL . currentTransaction ?~ conn) $ uncurryMethod method args
+      mConnRef <- view (transactionManagerL . currentTransaction)
+      writeIORef mConnRef (Just conn)
+      a <- uncurryMethod method args
       liftIO $ commit conn
       pure a
 

@@ -14,7 +14,6 @@ import Control.Env.Hierarchical
 import Housekeeping.Service.Hello.Handler
 import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Model
-import Lens.Micro.Platform
 import RIO
 import Servant.Server
 import Test.Hspec

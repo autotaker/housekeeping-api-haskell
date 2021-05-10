@@ -144,12 +144,13 @@ mkEnv penv = do
   let ((authRepo, userRepo), conn) = mockInterface penv
 
   pool <- createPool (pure conn) (const $ pure ()) 1 100 1
+  transactionManager <- defaultTransactionManager
   pure $
     Env
       userRepo
       authRepo
       passwordHasherMock
-      defaultTransactionManager
+      transactionManager
       pool
 
 spec :: Spec

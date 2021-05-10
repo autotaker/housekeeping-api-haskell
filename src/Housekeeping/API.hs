@@ -9,8 +9,7 @@ module Housekeeping.API
   ( API,
     app,
     api,
-    Env (..),
-    mkEnv,
+    Env,
   )
 where
 
@@ -32,9 +31,6 @@ type API = "hello" :> Hello.API
 
 data Env = Env LogFunc (Pool Connection) (TransactionManager Connection) (Database Env)
 
-mkEnv :: LogFunc -> Pool Connection -> Env
-mkEnv lf pool = Env lf pool defaultTransactionManager databaseImpl
-
 deriveEnv ''Env
 
 instance HasConnectionPool Env where
@@ -47,11 +43,13 @@ instance HasTransactionManager Env where
 api :: Proxy API
 api = Proxy
 
-app :: Env -> Application
-app env = serve api $ hoistServer api nt Hello.server
+app :: LogFunc -> Pool Connection -> Application
+app lf pool = serve api $ hoistServer api nt Hello.server
   where
     nt :: RIO Env a -> Handler a
-    nt action =
+    nt action = do
+      transactionManager <- liftIO defaultTransactionManager
+      let env = Env lf pool transactionManager databaseImpl
       Handler $
         ExceptT $
           (Right <$> runRIO env action)
