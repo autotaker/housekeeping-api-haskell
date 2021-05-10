@@ -23,8 +23,6 @@ data MockEnv = MockEnv LogFunc (HelloRepository MockEnv)
 
 deriveEnv ''MockEnv
 
-makeLenses ''MockEnv
-
 run :: RIO MockEnv a -> IO a
 run action = do
   options <- logOptionsHandle stderr True
