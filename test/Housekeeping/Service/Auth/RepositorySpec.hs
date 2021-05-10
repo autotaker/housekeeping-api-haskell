@@ -1,9 +1,13 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Auth.RepositorySpec where
 
-import Control.Method
+import Control.Env.Hierarchical
 import Control.Method.Internal
 import qualified Crypto.BCrypt as BCrypt
 import Data.Maybe (fromJust)
@@ -17,22 +21,9 @@ import RIO (ByteString, Int64, MonadReader (local), RIO, runRIO)
 import Test.Hspec
 import Test.Method
 
-newtype Env = Env
-  {_database :: Database Env}
+newtype Env = Env (Database Env)
 
-makeLenses ''Env
-
-instance ViewDatabase Env where
-  databaseV = database
-
-instance HasDatabase Env where
-  databaseL = database
-
-instance ViewUserRepository Env where
-  userRepositoryV = to $ const userRepositoryImpl
-
-instance ViewAuthRepository Env where
-  authRepositoryV = to $ const authRepositoryImpl
+deriveEnv ''Env
 
 user1 :: User
 user1 = User "user1" 0
@@ -87,7 +78,7 @@ spec = do
     describe "findUserByUserName" $ do
       let run username =
             runRIO env $
-              invoke (userRepositoryV . findUserByUserName) username
+              view findUserByUserName userRepositoryImpl username
       context "when username is registered" $ do
         it "return Just user" $ do
           run "user1" `shouldReturn` Just (User "user1" 0)
@@ -100,7 +91,9 @@ spec = do
             `shouldThrow` anyErrorCall
 
     describe "createUser" $ do
-      let run user = runRIO env $ invoke (userRepositoryV . createUser) user
+      let run user =
+            runRIO env $
+              view createUser userRepositoryImpl user
       it "return User with fresh user_id" $ do
         run (User "user2" 0) `shouldReturn` User "user2" 2
       context "if database returns non-single rows" $ do
@@ -111,7 +104,7 @@ spec = do
     describe "findPasswordAuthByUserName" $ do
       let run username =
             runRIO env $
-              invoke (authRepositoryV . findPasswordAuthByUserName) username
+              view findPasswordAuthByUserName authRepositoryImpl username
       context "when password is registered" $ do
         it "returns Just passwordAuth" $
           run "user1" `shouldReturn` Just (PasswordAuth user1 password1)
@@ -126,8 +119,8 @@ spec = do
         let auth = PasswordAuth user1 password1
         logs <- runRIO env $
           withMonitor_ $ \monitor ->
-            local (databaseL %~ (\db -> db {_execute = watchBy toDyn id monitor $ _execute db})) $ do
-              invoke (authRepositoryV . upsertPasswordAuth) auth
+            local (getL @(Database Env) %~ (\db -> db {_execute = watchBy toDyn id monitor $ _execute db})) $ do
+              view upsertPasswordAuth authRepositoryImpl auth
         (logs :: [Event (Query :* Dynamic :* Nil) Int64])
           `shouldSatisfy` (== 1)
             `times` call (args (anything, dynArg (== (0 :: UserId, password1))))

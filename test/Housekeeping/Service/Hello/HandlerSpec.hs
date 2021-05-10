@@ -1,9 +1,15 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Housekeeping.Service.Hello.HandlerSpec where
 
+import Control.Env.Hierarchical
 import Housekeeping.Service.Hello.Handler
 import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Model
@@ -13,20 +19,11 @@ import Servant.Server
 import Test.Hspec
 import Test.Method
 
-data MockEnv = MockEnv
-  { _logFunc :: LogFunc,
-    _helloRepository :: HelloRepository MockEnv
-  }
+data MockEnv = MockEnv LogFunc (HelloRepository MockEnv)
+
+deriveEnv ''MockEnv
 
 makeLenses ''MockEnv
-
-instance HasLogFunc MockEnv where
-  logFuncL = logFunc
-
-instance HasHelloRepository MockEnv where
-  helloRepositoryL = helloRepository
-
-instance ViewHelloRepository MockEnv
 
 run :: RIO MockEnv a -> IO a
 run action = do
@@ -37,13 +34,11 @@ run action = do
 mockEnv :: LogFunc -> MockEnv
 mockEnv lf =
   MockEnv
-    { _logFunc = lf,
-      _helloRepository =
-        HelloRepository
-          { _selectMessage = pure ["Hello World!"],
-            _insertMessage = \_ -> pure ()
-          }
-    }
+    lf
+    HelloRepository
+      { _selectMessage = pure ["Hello World!"],
+        _insertMessage = \_ -> pure ()
+      }
 
 spec :: Spec
 spec = do
@@ -73,6 +68,6 @@ spec = do
     it "should call insertMessage" $ do
       logs <- run $
         withMonitor_ $ \monitor ->
-          local (helloRepositoryL . insertMessage %~ watch monitor) $
+          local (getL @(HelloRepository MockEnv) . insertMessage %~ watch monitor) $
             _insertHandler "INSERT TEST"
       logs `shouldSatisfy` (== 1) `times` call (args (== "INSERT TEST"))

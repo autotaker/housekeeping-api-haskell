@@ -1,27 +1,29 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Hello.RepositorySpec where
 
-import Control.Method (Method (Args), invoke)
+import Control.Env.Hierarchical
+import Control.Method (Method (Args))
 import Database.PostgreSQL.Simple (Query)
 import Housekeeping.DataSource
   ( Database (..),
-    HasDatabase (..),
     Only (Only),
-    ViewDatabase (..),
   )
 import Housekeeping.Service.Hello.Interface
-  ( ViewHelloRepository (..),
-    insertMessage,
+  ( insertMessage,
     selectMessage,
   )
 import Housekeeping.Service.Hello.Repository
   ( helloRepositoryImpl,
   )
-import Lens.Micro.Platform (makeLenses, to, (%~))
+import Lens.Micro.Platform (view, (%~))
 import RIO (Int64, MonadReader (local), RIO, Text, runRIO)
 import Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 import Test.Method (ArgsMatcher (args), Dynamic, Event, ToDyn (toDyn), anything, call, castMethod, dynArg, mockup, thenReturn, times, watchBy, when, withMonitor_)
@@ -43,32 +45,23 @@ databaseMock =
       when (args (== "SELECT msg FROM message"))
         `thenReturn` toDyn [Only ("hello world!" :: Text)]
 
-newtype Env = Env {_database :: Database Env}
+newtype Env = Env (Database Env)
 
-makeLenses ''Env
-
-instance ViewDatabase Env where
-  databaseV = database
-
-instance HasDatabase Env where
-  databaseL = database
-
-instance ViewHelloRepository Env where
-  helloRepositoryV = to $ const helloRepositoryImpl
+deriveEnv ''Env
 
 spec :: Spec
 spec = do
   describe "selectMessage" $ do
     it "query select message" $ do
       r <- runRIO (Env databaseMock) $ do
-        invoke (helloRepositoryV . selectMessage)
+        view selectMessage helloRepositoryImpl
       r `shouldBe` ["hello world!"]
 
   describe "insertMessage" $ do
     it "query insert message" $ do
       logs <- runRIO (Env databaseMock) $
         withMonitor_ $ \monitor -> do
-          local (databaseL %~ (\db -> db {_execute = watchBy toDyn id monitor (_execute db)})) $
-            invoke (helloRepositoryV . insertMessage) "hello world!"
+          local (getL @(Database Env) %~ (\db -> db {_execute = watchBy toDyn id monitor (_execute db)})) $
+            view insertMessage helloRepositoryImpl "hello world!"
       (logs :: [Event (Args (Query -> Dynamic -> RIO Env Int64)) Int64]) `shouldSatisfy` (== 1)
         `times` call (args (anything, dynArg (== Only ("hello world!" :: Text))))

@@ -1,17 +1,19 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Hello.ControllerSpec where
 
+import Control.Env.Hierarchical
 import Control.Monad.Except
 import Housekeeping.Service.Hello.Controller
 import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Model
-import Lens.Micro.Platform (makeLenses)
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.HTTP.Types
 import qualified Network.Wai.Handler.Warp as Warp
@@ -47,14 +49,9 @@ mockHelloHandler =
       _insertHandler = \x -> liftIO $ x `shouldBe` "INSERT TEST"
     }
 
-newtype Env = Env {_hello :: HelloHandler Env}
+newtype Env = Env (HelloHandler Env)
 
-makeLenses ''Env
-
-instance HasHelloHandler Env where
-  helloHandlerL = hello
-
-instance ViewHelloHandler Env
+deriveEnv ''Env
 
 testApp :: Application
 testApp = serve api $ hoistServer api nt server

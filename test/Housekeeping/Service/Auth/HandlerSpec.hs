@@ -1,11 +1,15 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Auth.HandlerSpec (spec) where
 
-import Control.Method (invoke)
+import Control.Env.Hierarchical
 import qualified Crypto.BCrypt as BCrypt
 import Data.Maybe (fromJust)
 import Data.Pool (Pool, createPool)
@@ -21,10 +25,6 @@ import Housekeeping.Service.Auth.Interface
   ( AuthRepository (..),
     PasswordHasher (..),
     UserRepository (..),
-    ViewAuthHandler (..),
-    ViewAuthRepository (..),
-    ViewPasswordHasher (..),
-    ViewUserRepository (..),
     signinHandler,
     signupHandler,
   )
@@ -33,13 +33,11 @@ import Housekeeping.Service.Auth.Model
     PasswordAuth (..),
     PlainPassword (..),
     User (..),
-    UserName,
     userName,
   )
-import Lens.Micro.Platform (makeLenses, to, (^.))
+import Lens.Micro.Platform (view, (^.))
 import RIO
   ( ByteString,
-    RIO,
     StringException,
     runRIO,
     throwString,
@@ -59,21 +57,23 @@ import Test.Method
   ( ProtocolEnv,
     decl,
     dependsOn,
-    lookupMock,
+    deriveLabel,
+    mockInterface,
     protocol,
     thenAction,
     thenReturn,
     verify,
     whenArgs,
+    (:|:) (L, R),
   )
 
-data Env = Env
-  { _userRepository :: UserRepository Env,
-    _authRepository :: AuthRepository Env,
-    _passwordHasher :: PasswordHasher Env,
-    _transactionManager :: TransactionManager MConnection,
-    _connectionPool :: Pool MConnection
-  }
+data Env
+  = Env
+      (UserRepository Env)
+      (AuthRepository Env)
+      (PasswordHasher Env)
+      (TransactionManager MConnection)
+      (Pool MConnection)
 
 data MConnection = MConnection
   { mBegin :: IO (),
@@ -86,23 +86,15 @@ instance Transactional MConnection where
   commit = mCommit
   rollback = mRollback
 
-makeLenses ''Env
+deriveEnv ''Env
 
-data Methods m where
-  HashPassword :: Methods (PlainPassword -> RIO Env HashedPassword)
-  FindUserByUserName :: Methods (UserName -> RIO Env (Maybe User))
-  CreateUser :: Methods (User -> RIO Env User)
-  FindPasswordAuthByUserName :: Methods (UserName -> RIO Env (Maybe PasswordAuth))
-  UpsertPasswordAuth :: Methods (PasswordAuth -> RIO Env ())
-  TBegin :: Methods (IO ())
-  TCommit :: Methods (IO ())
-  TRollback :: Methods (IO ())
+deriveLabel ''UserRepository
 
-deriving instance Eq (Methods m)
+deriveLabel ''AuthRepository
 
-deriving instance Ord (Methods m)
+deriveLabel ''PasswordHasher
 
-deriving instance Show (Methods m)
+deriveLabel ''MConnection
 
 mockSalt :: ByteString
 mockSalt = "$2y$04$akDsXE7raEDxa1btakPxWO"
@@ -119,53 +111,42 @@ auth1 = PasswordAuth user1 hashedPassword1
 user1 :: User
 user1 = User {_userName = "user1", _userId = 0}
 
-instance ViewAuthHandler Env where
-  authHandlerV = to $ const authHandlerImpl
-
-instance ViewUserRepository Env where
-  userRepositoryV = userRepository
-
-instance ViewAuthRepository Env where
-  authRepositoryV = authRepository
-
-instance ViewPasswordHasher Env where
-  passwordHasherV = passwordHasher
-
 instance HasTransactionManager Env where
-  transactionManagerL = transactionManager
+  transactionManagerL = getL
 
 instance HasConnectionPool Env where
   type IConnection Env = MConnection
-  connectionPoolL = connectionPool
+  connectionPoolL = getL
+
+type Methods = AuthRepositoryLabel Env :|: UserRepositoryLabel Env :|: PasswordHasherLabel Env :|: MConnectionLabel
+
+class Inj f where
+  inj :: f m -> Methods m
+
+instance env ~ Env => Inj (AuthRepositoryLabel env) where
+  inj = L . L . L
+
+instance env ~ Env => Inj (UserRepositoryLabel env) where
+  inj = L . L . R
+
+instance env ~ Env => Inj (PasswordHasherLabel env) where
+  inj = L . R
+
+instance Inj MConnectionLabel where
+  inj = R
 
 mkEnv :: ProtocolEnv Methods -> IO Env
 mkEnv penv = do
-  let conn =
-        MConnection
-          { mBegin = lookupMock TBegin penv,
-            mCommit = lookupMock TCommit penv,
-            mRollback = lookupMock TRollback penv
-          }
+  let (((authRepo, userRepo), passwordHasher), conn) = mockInterface penv
+
   pool <- createPool (pure conn) (const $ pure ()) 1 100 1
-  pure
+  pure $
     Env
-      { _authRepository =
-          AuthRepository
-            { _findPasswordAuthByUserName = lookupMock FindPasswordAuthByUserName penv,
-              _upsertPasswordAuth = lookupMock UpsertPasswordAuth penv
-            },
-        _userRepository =
-          UserRepository
-            { _createUser = lookupMock CreateUser penv,
-              _findUserByUserName = lookupMock FindUserByUserName penv
-            },
-        _passwordHasher =
-          PasswordHasher
-            { _hashPassword = lookupMock HashPassword penv
-            },
-        _transactionManager = defaultTransactionManager,
-        _connectionPool = pool
-      }
+      userRepo
+      authRepo
+      passwordHasher
+      defaultTransactionManager
+      pool
 
 spec :: Spec
 spec = do
@@ -174,44 +155,44 @@ spec = do
     context "when the username is not registered yet" $ do
       it "returns `Just user` and commits the transaction" $ do
         penv <- protocol $ do
-          findUserCall <- decl $ whenArgs FindUserByUserName (== usernm) `thenReturn` Nothing
-          beginCall <- decl $ whenArgs TBegin () `thenReturn` ()
+          findUserCall <- decl $ whenArgs (inj FindUserByUserName) (== usernm) `thenReturn` Nothing
+          beginCall <- decl $ whenArgs (inj MBegin) () `thenReturn` ()
           createUserCall <-
             decl $
-              whenArgs CreateUser (== user1 {_userId = -1})
+              whenArgs (inj CreateUser) (== user1 {_userId = -1})
                 `thenReturn` user1
                 `dependsOn` [findUserCall, beginCall]
-          hashPasswordCall <- decl $ whenArgs HashPassword (== password1) `thenReturn` hashedPassword1
+          hashPasswordCall <- decl $ whenArgs (inj HashPassword) (== password1) `thenReturn` hashedPassword1
           upsertPasswordAuthCall <-
             decl $
-              whenArgs UpsertPasswordAuth (== auth1)
+              whenArgs (inj UpsertPasswordAuth) (== auth1)
                 `thenReturn` () `dependsOn` [createUserCall, hashPasswordCall]
-          decl $ whenArgs TCommit () `thenReturn` () `dependsOn` [upsertPasswordAuthCall]
+          decl $ whenArgs (inj MCommit) () `thenReturn` () `dependsOn` [upsertPasswordAuthCall]
         env <- mkEnv penv
-        runRIO env (invoke (authHandlerV . signupHandler) usernm password1) `shouldReturn` Just user1
+        runRIO env (view signupHandler authHandlerImpl usernm password1) `shouldReturn` Just user1
         verify penv
     context "when the username is already registered" $ do
       it "returns `Nothing` and doesn't begin a transaction" $ do
         penv <- protocol $ do
-          decl $ whenArgs FindUserByUserName (== usernm) `thenReturn` Just user1
+          decl $ whenArgs (inj FindUserByUserName) (== usernm) `thenReturn` Just user1
         env <- mkEnv penv
-        runRIO env (invoke (authHandlerV . signupHandler) usernm password1) `shouldReturn` Nothing
+        runRIO env (view signupHandler authHandlerImpl usernm password1) `shouldReturn` Nothing
         verify penv
     context "when exception raised during transaction" $ do
       it "raises the exception and rollback the transaction" $ do
         penv <- protocol $ do
-          findUserCall <- decl $ whenArgs FindUserByUserName (== usernm) `thenReturn` Nothing
-          beginCall <- decl $ whenArgs TBegin () `thenReturn` ()
+          findUserCall <- decl $ whenArgs (inj FindUserByUserName) (== usernm) `thenReturn` Nothing
+          beginCall <- decl $ whenArgs (inj MBegin) () `thenReturn` ()
           createUserCall <-
             decl $
-              whenArgs CreateUser (== user1 {_userId = -1})
+              whenArgs (inj CreateUser) (== user1 {_userId = -1})
                 `thenAction` throwString "failed to create user"
                 `dependsOn` [findUserCall, beginCall]
-          decl $ whenArgs TRollback () `thenReturn` () `dependsOn` [createUserCall]
+          decl $ whenArgs (inj MRollback) () `thenReturn` () `dependsOn` [createUserCall]
         env <- mkEnv penv
         let anyStringException :: StringException -> Bool
             anyStringException _ = True
-        runRIO env (invoke (authHandlerV . signupHandler) usernm password1) `shouldThrow` anyStringException
+        runRIO env (view signupHandler authHandlerImpl usernm password1) `shouldThrow` anyStringException
         verify penv
   describe "signinHandler" $ do
     let usernm = "username1"
@@ -220,23 +201,23 @@ spec = do
       it "returns `Authenticated user`" $ do
         penv <- protocol $ do
           decl $
-            whenArgs FindPasswordAuthByUserName (== usernm)
+            whenArgs (inj FindPasswordAuthByUserName) (== usernm)
               `thenReturn` Just auth1
         env <- mkEnv penv
-        runRIO env (invoke (authHandlerV . signinHandler) usernm password1) `shouldReturn` Authenticated user1
+        runRIO env (view signinHandler authHandlerImpl usernm password1) `shouldReturn` Authenticated user1
     context "when auth is not registered for given username" $ do
       it "returns `NoSuchUser`" $ do
         penv <- protocol $ do
           decl $
-            whenArgs FindPasswordAuthByUserName (== usernm)
+            whenArgs (inj FindPasswordAuthByUserName) (== usernm)
               `thenReturn` Nothing
         env <- mkEnv penv
-        runRIO env (invoke (authHandlerV . signinHandler) usernm password1) `shouldReturn` NoSuchUser
+        runRIO env (view signinHandler authHandlerImpl usernm password1) `shouldReturn` NoSuchUser
     context "when password is wrong" $ do
       it "returns `BadPassword`" $ do
         penv <- protocol $ do
           decl $
-            whenArgs FindPasswordAuthByUserName (== usernm)
+            whenArgs (inj FindPasswordAuthByUserName) (== usernm)
               `thenReturn` Just auth1
         env <- mkEnv penv
-        runRIO env (invoke (authHandlerV . signinHandler) usernm wrongPasswd) `shouldReturn` BadPassword
+        runRIO env (view signinHandler authHandlerImpl usernm wrongPasswd) `shouldReturn` BadPassword

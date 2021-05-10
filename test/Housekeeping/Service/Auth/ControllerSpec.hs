@@ -2,12 +2,15 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Auth.ControllerSpec where
 
+import Control.Env.Hierarchical
 import Control.Monad.Except (ExceptT (ExceptT))
 import Crypto.JOSE (JWK)
 import Housekeeping.Service.Auth.Controller
@@ -19,8 +22,6 @@ import Housekeeping.Service.Auth.Controller
 import Housekeeping.Service.Auth.Interface
   ( AuthConfig (..),
     AuthHandler (..),
-    HasAuthConfig (..),
-    HasAuthHandler (..),
     cookieSettings,
     jwtSettings,
   )
@@ -28,7 +29,7 @@ import Housekeeping.Service.Auth.Model
   ( PlainPassword (PlainPassword),
     User (User),
   )
-import Lens.Micro.Platform (makeLenses, (^.))
+import Lens.Micro.Platform ((^.))
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.HTTP.Types (Status (statusCode))
 import qualified Network.Wai.Handler.Warp as Warp
@@ -90,18 +91,9 @@ mockAuthConfig jwk =
       _cookieSettings = defaultCookieSettings
     }
 
-data Env = Env
-  { _authHandler :: AuthHandler Env,
-    _authConfig :: AuthConfig
-  }
+data Env = Env (AuthHandler Env) AuthConfig
 
-makeLenses ''Env
-
-instance HasAuthConfig Env where
-  authConfigL = authConfig
-
-instance HasAuthHandler Env where
-  authHandlerL = authHandler
+deriveEnv ''Env
 
 mkEnv :: JWK -> Env
 mkEnv jwk = Env mockAuthHandler (mockAuthConfig jwk)
@@ -115,8 +107,8 @@ testApp env = serveWithContext api ctx $ hoistServerWithContext api ctxProxy nt 
         ExceptT $
           (Right <$> runRIO env action)
             `catch` (pure . Left)
-    cookie = env ^. authConfigL . cookieSettings
-    jwt = env ^. authConfigL . jwtSettings
+    cookie = env ^. getL . cookieSettings
+    jwt = env ^. getL . jwtSettings
     ctx = cookie :. jwt :. EmptyContext
     ctxProxy :: Proxy '[CookieSettings, JWTSettings]
     ctxProxy = Proxy
