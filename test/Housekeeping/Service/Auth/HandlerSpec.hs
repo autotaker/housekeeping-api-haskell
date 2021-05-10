@@ -105,6 +105,13 @@ password1 = PlainPassword "password1"
 hashedPassword1 :: HashedPassword
 hashedPassword1 = HashedPassword $ fromJust $ BCrypt.hashPassword "password1" mockSalt
 
+passwordHasherMock :: PasswordHasher env
+passwordHasherMock =
+  PasswordHasher
+    { _hashPassword = \(PlainPassword passwd) ->
+        pure $ HashedPassword $ fromJust $ BCrypt.hashPassword passwd mockSalt
+    }
+
 auth1 :: PasswordAuth
 auth1 = PasswordAuth user1 hashedPassword1
 
@@ -118,18 +125,15 @@ instance HasConnectionPool Env where
   type IConnection Env = MConnection
   connectionPoolL = getL
 
-type Methods = AuthRepositoryLabel Env :|: UserRepositoryLabel Env :|: PasswordHasherLabel Env :|: MConnectionLabel
+type Methods = AuthRepositoryLabel Env :|: UserRepositoryLabel Env :|: MConnectionLabel
 
 class Inj f where
   inj :: f m -> Methods m
 
 instance env ~ Env => Inj (AuthRepositoryLabel env) where
-  inj = L . L . L
+  inj = L . L
 
 instance env ~ Env => Inj (UserRepositoryLabel env) where
-  inj = L . L . R
-
-instance env ~ Env => Inj (PasswordHasherLabel env) where
   inj = L . R
 
 instance Inj MConnectionLabel where
@@ -137,14 +141,14 @@ instance Inj MConnectionLabel where
 
 mkEnv :: ProtocolEnv Methods -> IO Env
 mkEnv penv = do
-  let (((authRepo, userRepo), passwordHasher), conn) = mockInterface penv
+  let ((authRepo, userRepo), conn) = mockInterface penv
 
   pool <- createPool (pure conn) (const $ pure ()) 1 100 1
   pure $
     Env
       userRepo
       authRepo
-      passwordHasher
+      passwordHasherMock
       defaultTransactionManager
       pool
 
@@ -162,11 +166,10 @@ spec = do
               whenArgs (inj CreateUser) (== user1 {_userId = -1})
                 `thenReturn` user1
                 `dependsOn` [findUserCall, beginCall]
-          hashPasswordCall <- decl $ whenArgs (inj HashPassword) (== password1) `thenReturn` hashedPassword1
           upsertPasswordAuthCall <-
             decl $
               whenArgs (inj UpsertPasswordAuth) (== auth1)
-                `thenReturn` () `dependsOn` [createUserCall, hashPasswordCall]
+                `thenReturn` () `dependsOn` [createUserCall]
           decl $ whenArgs (inj MCommit) () `thenReturn` () `dependsOn` [upsertPasswordAuthCall]
         env <- mkEnv penv
         runRIO env (view signupHandler authHandlerImpl usernm password1) `shouldReturn` Just user1
