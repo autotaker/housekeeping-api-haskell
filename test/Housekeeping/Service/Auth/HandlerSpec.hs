@@ -35,7 +35,7 @@ import Housekeeping.Service.Auth.Model
     User (..),
     userName,
   )
-import Lens.Micro.Platform (view, (^.))
+import Lens.Micro.Platform ((^.))
 import RIO
   ( ByteString,
     StringException,
@@ -108,7 +108,7 @@ hashedPassword1 = HashedPassword $ fromJust $ BCrypt.hashPassword "password1" mo
 passwordHasherMock :: PasswordHasher env
 passwordHasherMock =
   PasswordHasher
-    { _hashPassword = \(PlainPassword passwd) ->
+    { hashPassword = \(PlainPassword passwd) ->
         pure $ HashedPassword $ fromJust $ BCrypt.hashPassword passwd mockSalt
     }
 
@@ -172,14 +172,14 @@ spec = do
                 `thenReturn` () `dependsOn` [createUserCall]
           decl $ whenArgs (inj MCommit) () `thenReturn` () `dependsOn` [upsertPasswordAuthCall]
         env <- mkEnv penv
-        runRIO env (view signupHandler authHandlerImpl usernm password1) `shouldReturn` Just user1
+        runRIO env (signupHandler authHandlerImpl usernm password1) `shouldReturn` Just user1
         verify penv
     context "when the username is already registered" $ do
       it "returns `Nothing` and doesn't begin a transaction" $ do
         penv <- protocol $ do
           decl $ whenArgs (inj FindUserByUserName) (== usernm) `thenReturn` Just user1
         env <- mkEnv penv
-        runRIO env (view signupHandler authHandlerImpl usernm password1) `shouldReturn` Nothing
+        runRIO env (signupHandler authHandlerImpl usernm password1) `shouldReturn` Nothing
         verify penv
     context "when exception raised during transaction" $ do
       it "raises the exception and rollback the transaction" $ do
@@ -195,7 +195,7 @@ spec = do
         env <- mkEnv penv
         let anyStringException :: StringException -> Bool
             anyStringException _ = True
-        runRIO env (view signupHandler authHandlerImpl usernm password1) `shouldThrow` anyStringException
+        runRIO env (signupHandler authHandlerImpl usernm password1) `shouldThrow` anyStringException
         verify penv
   describe "signinHandler" $ do
     let usernm = "username1"
@@ -207,7 +207,7 @@ spec = do
             whenArgs (inj FindPasswordAuthByUserName) (== usernm)
               `thenReturn` Just auth1
         env <- mkEnv penv
-        runRIO env (view signinHandler authHandlerImpl usernm password1) `shouldReturn` Authenticated user1
+        runRIO env (signinHandler authHandlerImpl usernm password1) `shouldReturn` Authenticated user1
     context "when auth is not registered for given username" $ do
       it "returns `NoSuchUser`" $ do
         penv <- protocol $ do
@@ -215,7 +215,7 @@ spec = do
             whenArgs (inj FindPasswordAuthByUserName) (== usernm)
               `thenReturn` Nothing
         env <- mkEnv penv
-        runRIO env (view signinHandler authHandlerImpl usernm password1) `shouldReturn` NoSuchUser
+        runRIO env (signinHandler authHandlerImpl usernm password1) `shouldReturn` NoSuchUser
     context "when password is wrong" $ do
       it "returns `BadPassword`" $ do
         penv <- protocol $ do
@@ -223,4 +223,4 @@ spec = do
             whenArgs (inj FindPasswordAuthByUserName) (== usernm)
               `thenReturn` Just auth1
         env <- mkEnv penv
-        runRIO env (view signinHandler authHandlerImpl usernm wrongPasswd) `shouldReturn` BadPassword
+        runRIO env (signinHandler authHandlerImpl usernm wrongPasswd) `shouldReturn` BadPassword

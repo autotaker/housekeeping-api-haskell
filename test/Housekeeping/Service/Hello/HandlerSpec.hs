@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -23,49 +24,43 @@ data MockEnv = MockEnv LogFunc (HelloRepository MockEnv)
 
 deriveEnv ''MockEnv
 
-run :: RIO MockEnv a -> IO a
-run action = do
-  options <- logOptionsHandle stderr True
-  withLogFunc options $ \lf -> do
-    runRIO (mockEnv lf) action
+deriveLabel ''HelloRepository
 
-mockEnv :: LogFunc -> MockEnv
-mockEnv lf =
-  MockEnv
-    lf
-    HelloRepository
-      { _selectMessage = pure ["Hello World!"],
-        _insertMessage = \_ -> pure ()
-      }
+runP :: ProtocolM (HelloRepositoryLabel MockEnv) b -> RIO MockEnv a -> IO a
+runP proto action =
+  withProtocol proto $ \repo -> do
+    (_logger, options) <- logOptionsMemory
+    withLogFunc options $ \lf -> do
+      runRIO (MockEnv lf repo) action
 
 spec :: Spec
 spec = do
   let HelloHandler {..} = helloHandlerImpl
   describe "helloHandler" $
     it "return Hello" $ do
-      run _helloHandler `shouldReturn` Hello
+      runP (pure ()) helloHandler `shouldReturn` Hello
 
   describe "worldHandler" $
     it "return World" $ do
-      run _worldHandler `shouldReturn` World
+      runP (pure ()) worldHandler `shouldReturn` World
 
   describe "errorHandler" $
     it "should throw 400 error" $ do
       let any400Error err = errHTTPCode err == 400
-      run _errorHandler `shouldThrow` any400Error
+      runP (pure ()) errorHandler `shouldThrow` any400Error
 
   describe "fatalHandler" $
     it "should throw undefined" $ do
-      run _fatalHandler `shouldThrow` anyException
+      runP (pure ()) fatalHandler `shouldThrow` anyException
 
   describe "selectHandler" $
     it "should call selectMessage" $ do
-      run _selectHandler `shouldReturn` ["Hello World!"]
+      let proto =
+            decl $ whenArgs SelectMessage () `thenReturn` ["Hello World!"]
+      runP proto selectHandler `shouldReturn` ["Hello World!"]
 
   describe "insertHandler" $
     it "should call insertMessage" $ do
-      logs <- run $
-        withMonitor_ $ \monitor ->
-          local (getL @(HelloRepository MockEnv) . insertMessage %~ watch monitor) $
-            _insertHandler "INSERT TEST"
-      logs `shouldSatisfy` (== 1) `times` call (args (== "INSERT TEST"))
+      let proto =
+            decl $ whenArgs InsertMessage (== "INSERT TEST") `thenReturn` ()
+      runP proto (insertHandler "INSERT TEST")

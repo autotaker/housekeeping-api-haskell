@@ -33,6 +33,6 @@ insertMessageImpl msg =
 helloRepositoryImpl :: Has1 Database env => HelloRepository env
 helloRepositoryImpl =
   HelloRepository
-    { _insertMessage = insertMessageImpl,
-      _selectMessage = selectMessageImpl
+    { insertMessage = insertMessageImpl,
+      selectMessage = selectMessageImpl
     }

@@ -23,23 +23,23 @@ import Servant.Server
 helloHandlerImpl :: (Has LogFunc env, Has1 HelloRepository env) => HelloHandler env
 helloHandlerImpl =
   HelloHandler
-    { _helloHandler = helloImpl,
-      _worldHandler = worldImpl,
-      _errorHandler = errorImpl,
-      _fatalHandler = fatalImpl,
-      _selectHandler = selectImpl,
-      _insertHandler = insertImpl
+    { helloHandler = helloImpl,
+      worldHandler = worldImpl,
+      errorHandler = errorImpl,
+      fatalHandler = fatalImpl,
+      selectHandler = selectImpl,
+      insertHandler = insertImpl
     }
 
 insertImpl :: (Has LogFunc env, Has1 HelloRepository env) => Text -> RIO env ()
 insertImpl msg = do
   logInfo $ "insert message: " <> display msg
-  runIF (\h -> view insertMessage h msg)
+  runIF (\h -> insertMessage h msg)
 
 selectImpl :: (Has LogFunc env, Has1 HelloRepository env) => RIO env [Text]
 selectImpl = do
   logInfo "select message"
-  runIF (view selectMessage)
+  runIF selectMessage
 
 helloImpl :: (Has LogFunc env) => RIO env Hello
 helloImpl = do

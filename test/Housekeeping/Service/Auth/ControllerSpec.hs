@@ -76,10 +76,10 @@ import Test.Method
 mockAuthHandler :: AuthHandler env
 mockAuthHandler =
   AuthHandler
-    { _signinHandler = mockup $ do
+    { signinHandler = mockup $ do
         when (args ((== "user1"), (== PlainPassword "password1"))) `thenReturn` Authenticated (User "user1" 0)
         when anything `thenReturn` NoSuchUser,
-      _signupHandler = mockup $ do
+      signupHandler = mockup $ do
         when (args ((== "user1"), anything)) `thenReturn` Nothing
         when anything `thenMethod` (\usernm !_ -> pure $ Just $ User usernm 1)
     }

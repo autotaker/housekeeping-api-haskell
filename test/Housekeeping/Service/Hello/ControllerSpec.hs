@@ -41,12 +41,12 @@ import Test.Hspec
 mockHelloHandler :: HelloHandler env
 mockHelloHandler =
   HelloHandler
-    { _helloHandler = pure Hello,
-      _worldHandler = pure World,
-      _errorHandler = throwIO err400,
-      _fatalHandler = throwIO err500,
-      _selectHandler = pure ["MESSAGE"],
-      _insertHandler = \x -> liftIO $ x `shouldBe` "INSERT TEST"
+    { helloHandler = pure Hello,
+      worldHandler = pure World,
+      errorHandler = throwIO err400,
+      fatalHandler = throwIO err500,
+      selectHandler = pure ["MESSAGE"],
+      insertHandler = \x -> liftIO $ x `shouldBe` "INSERT TEST"
     }
 
 newtype Env = Env (HelloHandler Env)

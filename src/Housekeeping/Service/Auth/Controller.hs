@@ -91,7 +91,7 @@ server = signin :<|> signup :<|> signout
       unless (T.all isAscii textPasswd) $ throwM err400
       let passwd = PlainPassword $ encodeUtf8 textPasswd
       config <- view getL
-      res <- runIF $ \auth -> view signinHandler auth usernm passwd
+      res <- runIF $ \auth -> signinHandler auth usernm passwd
       case res of
         Authenticated user -> do
           mAccept <- liftIO $ acceptLogin (config ^. cookieSettings) (config ^. jwtSettings) user
@@ -106,7 +106,7 @@ server = signin :<|> signup :<|> signout
           textPasswd = form ^. password
       unless (T.all isAscii textPasswd) $ throwM err400
       let passwd = PlainPassword $ encodeUtf8 textPasswd
-      mUser <- runIF $ \auth -> view signupHandler auth usernm passwd
+      mUser <- runIF $ \auth -> signupHandler auth usernm passwd
       case mUser of
         Just user -> pure user
         Nothing -> throwM err409 {errBody = "The user ID is already taken"}

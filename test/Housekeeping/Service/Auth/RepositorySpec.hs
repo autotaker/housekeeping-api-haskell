@@ -15,7 +15,6 @@ import Housekeeping.DataSource
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
 import Housekeeping.Service.Auth.Repository
-import Lens.Micro.Platform
 import RIO (ByteString, runRIO)
 import Test.Hspec
 import Test.Method
@@ -43,7 +42,7 @@ spec = do
           run proto =
             withProtocol proto $ \db ->
               runRIO (Env db) $
-                view findUserByUserName userRepositoryImpl usernm
+                findUserByUserName userRepositoryImpl usernm
           usernm :: UserName
           usernm = "user1"
       context "when username is registered" $ do
@@ -73,7 +72,7 @@ spec = do
           run proto =
             withProtocol proto $ \db ->
               runRIO (Env db) $
-                view createUser userRepositoryImpl user
+                createUser userRepositoryImpl user
           user = User "user1" 0
           usernm :: UserName
           usernm = "user1"
@@ -97,7 +96,7 @@ spec = do
           run proto =
             withProtocol proto $ \db ->
               runRIO (Env db) $
-                view findPasswordAuthByUserName authRepositoryImpl usernm
+                findPasswordAuthByUserName authRepositoryImpl usernm
           usernm :: UserName
           usernm = "user1"
       context "when password is registered" $ do
@@ -129,5 +128,5 @@ spec = do
                 whenArgs Execute (anything, dynArg (== (0 :: UserId, password1)))
                   `thenReturn` 1
         withProtocol proto $ \db ->
-          runRIO (Env db) (view upsertPasswordAuth authRepositoryImpl auth)
+          runRIO (Env db) (upsertPasswordAuth authRepositoryImpl auth)
             `shouldReturn` ()

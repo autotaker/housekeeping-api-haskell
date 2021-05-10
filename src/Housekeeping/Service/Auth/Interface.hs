@@ -18,11 +18,9 @@ import Servant.Auth.Server
   )
 
 data AuthHandler env = AuthHandler
-  { _signinHandler :: UserName -> PlainPassword -> RIO env (AuthResult User),
-    _signupHandler :: UserName -> PlainPassword -> RIO env (Maybe User)
+  { signinHandler :: UserName -> PlainPassword -> RIO env (AuthResult User),
+    signupHandler :: UserName -> PlainPassword -> RIO env (Maybe User)
   }
-
-makeLenses ''AuthHandler
 
 data AuthConfig = AuthConfig
   { _cookieSettings :: CookieSettings,
@@ -32,21 +30,15 @@ data AuthConfig = AuthConfig
 makeLenses ''AuthConfig
 
 data UserRepository env = UserRepository
-  { _findUserByUserName :: UserName -> RIO env (Maybe User),
-    _createUser :: User -> RIO env User
+  { findUserByUserName :: UserName -> RIO env (Maybe User),
+    createUser :: User -> RIO env User
   }
-
-makeLenses ''UserRepository
 
 data AuthRepository env = AuthRepository
-  { _findPasswordAuthByUserName :: UserName -> RIO env (Maybe PasswordAuth),
-    _upsertPasswordAuth :: PasswordAuth -> RIO env ()
+  { findPasswordAuthByUserName :: UserName -> RIO env (Maybe PasswordAuth),
+    upsertPasswordAuth :: PasswordAuth -> RIO env ()
   }
-
-makeLenses ''AuthRepository
 
 newtype PasswordHasher env = PasswordHasher
-  { _hashPassword :: PlainPassword -> RIO env HashedPassword
+  { hashPassword :: PlainPassword -> RIO env HashedPassword
   }
-
-makeLenses ''PasswordHasher

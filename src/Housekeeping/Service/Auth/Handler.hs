@@ -7,7 +7,7 @@ import Data.Coerce (coerce)
 import Housekeeping.DataSource (HasTransactionManager, transactional)
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
-import RIO (MonadTrans (lift), RIO, guard, isNothing, view, (^.))
+import RIO (MonadTrans (lift), RIO, guard, isNothing, (^.))
 import Servant.Auth.Server (AuthResult (Authenticated, BadPassword, NoSuchUser))
 
 authHandlerImpl ::
@@ -19,8 +19,8 @@ authHandlerImpl ::
   AuthHandler env
 authHandlerImpl =
   AuthHandler
-    { _signinHandler = signinHandlerImpl,
-      _signupHandler = signupHandlerImpl
+    { signinHandler = signinHandlerImpl,
+      signupHandler = signupHandlerImpl
     }
 
 signupHandlerImpl ::
@@ -33,15 +33,15 @@ signupHandlerImpl ::
   PlainPassword ->
   RIO env (Maybe User)
 signupHandlerImpl usernm passwd = runMaybeT $ do
-  mUser <- lift $ runIF (\repo -> view findUserByUserName repo usernm)
+  mUser <- lift $ runIF (\repo -> findUserByUserName repo usernm)
   guard $ isNothing mUser
   lift $
     transactional $ do
       user <- runIF $ \repo ->
-        view createUser repo $ User {_userName = usernm, _userId = -1}
-      hashedPasswd <- runIF $ \hasher -> view hashPassword hasher passwd
+        createUser repo $ User {_userName = usernm, _userId = -1}
+      hashedPasswd <- runIF $ \hasher -> hashPassword hasher passwd
       let auth = PasswordAuth user hashedPasswd
-      runIF $ \repo -> view upsertPasswordAuth repo auth
+      runIF $ \repo -> upsertPasswordAuth repo auth
       pure user
 
 signinHandlerImpl ::
@@ -50,7 +50,7 @@ signinHandlerImpl ::
   PlainPassword ->
   RIO env (AuthResult User)
 signinHandlerImpl usernm passwd = do
-  mAuth <- runIF (\repo -> view findPasswordAuthByUserName repo usernm)
+  mAuth <- runIF (\repo -> findPasswordAuthByUserName repo usernm)
   case mAuth of
     Nothing -> pure NoSuchUser
     Just auth

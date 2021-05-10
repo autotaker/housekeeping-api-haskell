@@ -13,11 +13,11 @@ where
 
 import Control.Env.Hierarchical
 import Data.Aeson (FromJSON, ToJSON)
-import Housekeeping.Prelude (view)
 import Housekeeping.Service.Hello.Interface
-  (helloHandler,  HelloHandler,
+  ( HelloHandler,
     errorHandler,
     fatalHandler,
+    helloHandler,
     insertHandler,
     selectHandler,
     worldHandler,
@@ -63,12 +63,12 @@ type API =
 
 server :: Has1 HelloHandler env => ServerT API (RIO env)
 server =
-  runIF (view helloHandler)
-    :<|> runIF (view worldHandler)
-    :<|> runIF (view errorHandler)
-    :<|> runIF (view fatalHandler)
-    :<|> runIF (view selectHandler)
-    :<|> (\msg -> runIF (\h -> view insertHandler h $ message msg))
+  runIF helloHandler
+    :<|> runIF worldHandler
+    :<|> runIF errorHandler
+    :<|> runIF fatalHandler
+    :<|> runIF selectHandler
+    :<|> (\msg -> runIF (\h -> insertHandler h $ message msg))
 
 api :: Proxy API
 api = Proxy

@@ -11,8 +11,8 @@ import RIO
 userRepositoryImpl :: Has1 Database env => UserRepository env
 userRepositoryImpl =
   UserRepository
-    { _findUserByUserName = findUser,
-      _createUser = create
+    { findUserByUserName = findUser,
+      createUser = create
     }
   where
     create user = do
@@ -45,8 +45,8 @@ userRepositoryImpl =
 authRepositoryImpl :: (Has1 Database env) => AuthRepository env
 authRepositoryImpl =
   AuthRepository
-    { _findPasswordAuthByUserName = findPassword,
-      _upsertPasswordAuth = upsertPassword
+    { findPasswordAuthByUserName = findPassword,
+      upsertPasswordAuth = upsertPassword
     }
   where
     findPasswordSql =

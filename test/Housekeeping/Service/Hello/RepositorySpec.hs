@@ -22,7 +22,6 @@ import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Repository
   ( helloRepositoryImpl,
   )
-import Lens.Micro.Platform (view)
 import RIO (Text, runRIO)
 import Test.Hspec (Spec, describe, it, shouldReturn)
 import Test.Method (ToDyn (toDyn), anything, decl, deriveLabel, dynArg, thenReturn, whenArgs, withProtocol)
@@ -41,7 +40,7 @@ spec = do
               whenArgs Query_ anything
                 `thenReturn` toDyn [Only ("hello world!" :: Text)]
       withProtocol proto $ \db ->
-        runRIO (Env db) (view selectMessage helloRepositoryImpl)
+        runRIO (Env db) (selectMessage helloRepositoryImpl)
           `shouldReturn` ["hello world!"]
 
   describe "insertMessage" $ do
@@ -51,5 +50,5 @@ spec = do
               whenArgs Execute (anything, dynArg (== Only ("hello world!" :: Text)))
                 `thenReturn` 1
       withProtocol proto $ \db ->
-        runRIO (Env db) (view insertMessage helloRepositoryImpl "hello world!")
+        runRIO (Env db) (insertMessage helloRepositoryImpl "hello world!")
           `shouldReturn` ()
