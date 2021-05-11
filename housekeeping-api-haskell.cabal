@@ -60,6 +60,7 @@ library
     Housekeeping.CLI
     Housekeeping.DataSource
     Housekeeping.Prelude
+    Housekeeping.Service.Auth
     Housekeeping.Service.Auth.Controller
     Housekeeping.Service.Auth.Handler
     Housekeeping.Service.Auth.Interface
@@ -71,6 +72,7 @@ library
     Housekeeping.Service.Hello.Interface
     Housekeeping.Service.Hello.Model
     Housekeeping.Service.Hello.Repository
+    Housekeeping.Session
 
   -- other-modules:
   -- other-extensions:

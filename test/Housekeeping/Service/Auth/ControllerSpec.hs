@@ -20,26 +20,21 @@ import Housekeeping.Service.Auth.Controller
     server,
   )
 import Housekeeping.Service.Auth.Interface
-  ( AuthConfig (..),
-    AuthHandler (..),
-    cookieSettings,
-    jwtSettings,
+  ( AuthHandler (..),
   )
 import Housekeeping.Service.Auth.Model
   ( PlainPassword (PlainPassword),
     User (User),
   )
-import Lens.Micro.Platform ((^.))
+import Housekeeping.Session
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.HTTP.Types (Status (statusCode))
 import qualified Network.Wai.Handler.Warp as Warp
 import RIO (RIO, catch, runRIO)
 import RIO.Prelude.Types (Proxy (Proxy))
-import Servant (Headers (getResponse), JSON, Post, ReqBody, (:>))
+import Servant (Headers (getResponse), JSON, Post, ReqBody, serve, (:>))
 import Servant.Auth.Server
   ( AuthResult (Authenticated, NoSuchUser),
-    CookieSettings,
-    JWTSettings,
     defaultCookieSettings,
     defaultJWTSettings,
     generateKey,
@@ -48,10 +43,8 @@ import Servant.Client (BaseUrl (baseUrlPort), ClientError (FailureResponse), Res
 import Servant.Client.Internal.HttpClient (mkClientEnv)
 import Servant.Server
   ( Application,
-    Context (EmptyContext, (:.)),
     Handler (..),
-    HasServer (hoistServerWithContext),
-    serveWithContext,
+    hoistServer,
   )
 import Test.Hspec
   ( Selector,
@@ -84,22 +77,22 @@ mockAuthHandler =
         when anything `thenMethod` (\usernm !_ -> pure $ Just $ User usernm 1)
     }
 
-mockAuthConfig :: JWK -> AuthConfig
-mockAuthConfig jwk =
-  AuthConfig
+mockSessionConfig :: JWK -> SessionConfig
+mockSessionConfig jwk =
+  SessionConfig
     { _jwtSettings = defaultJWTSettings jwk,
       _cookieSettings = defaultCookieSettings
     }
 
-data Env = Env (AuthHandler Env) AuthConfig
+data Env = Env (AuthHandler Env) SessionConfig
 
 deriveEnv ''Env
 
 mkEnv :: JWK -> Env
-mkEnv jwk = Env mockAuthHandler (mockAuthConfig jwk)
+mkEnv jwk = Env mockAuthHandler (mockSessionConfig jwk)
 
 testApp :: Env -> Application
-testApp env = serveWithContext api ctx $ hoistServerWithContext api ctxProxy nt server
+testApp env = serve api $ hoistServer api nt server
   where
     nt :: RIO Env a -> Handler a
     nt action =
@@ -107,11 +100,6 @@ testApp env = serveWithContext api ctx $ hoistServerWithContext api ctxProxy nt 
         ExceptT $
           (Right <$> runRIO env action)
             `catch` (pure . Left)
-    cookie = env ^. getL . cookieSettings
-    jwt = env ^. getL . jwtSettings
-    ctx = cookie :. jwt :. EmptyContext
-    ctxProxy :: Proxy '[CookieSettings, JWTSettings]
-    ctxProxy = Proxy
 
 withTestApp :: (Warp.Port -> IO ()) -> IO ()
 withTestApp =

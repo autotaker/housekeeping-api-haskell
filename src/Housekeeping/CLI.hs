@@ -10,10 +10,12 @@ import Data.Pool
 import Database.PostgreSQL.Simple
 import Housekeeping.API
 import Housekeeping.Prelude
+import Housekeeping.Session
 import Network.HTTP.Types.Status
 import Network.Wai
 import Network.Wai.Handler.Warp
 import qualified RIO.List as L
+import Servant.Auth.Server (defaultCookieSettings, defaultJWTSettings, generateKey)
 import System.Environment (lookupEnv)
 
 formatAccessLog :: Request -> Status -> Maybe Integer -> Utf8Builder
@@ -58,6 +60,15 @@ appConnectInfo = do
         connectDatabase = name
       }
 
+appSessionConfig :: IO SessionConfig
+appSessionConfig = do
+  jwk <- generateKey
+  pure
+    SessionConfig
+      { _jwtSettings = defaultJWTSettings jwk,
+        _cookieSettings = defaultCookieSettings
+      }
+
 mkDataSource :: IO (Pool Connection)
 mkDataSource = do
   cInfo <- appConnectInfo
@@ -72,6 +83,7 @@ main = do
   logOptions <- setLogUseTime True <$> logOptionsHandle stderr True
   withLogFunc logOptions $ \lf -> do
     ds <- mkDataSource
+    sessionConfig <- appSessionConfig
     runRIO (E lf) $ logInfo "Server started"
     let warpLogger req status mFileSize =
           runRIO (E lf) $ logInfo $ formatAccessLog req status mFileSize
@@ -79,4 +91,4 @@ main = do
           defaultSettings
             & setLogger warpLogger
             & setPort 8080
-    runSettings settings (app lf ds)
+    runSettings settings (app lf ds sessionConfig)

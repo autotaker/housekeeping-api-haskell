@@ -7,14 +7,22 @@ import Control.Env.Hierarchical
 import Control.Monad.Trans.Maybe
 import qualified Crypto.BCrypt as BCrypt
 import Data.Coerce (coerce)
+import Data.Maybe (fromJust)
 import Housekeeping.DataSource
   ( HasTransactionManager,
     transactional,
   )
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
-import RIO (MonadTrans (lift), RIO, guard, isNothing, (^.))
+import RIO (MonadIO (liftIO), MonadTrans (lift), RIO, guard, isNothing, (^.))
 import Servant.Auth.Server (AuthResult (Authenticated, BadPassword, NoSuchUser))
+
+passwordHasherImpl :: PasswordHasher env
+passwordHasherImpl =
+  PasswordHasher
+    { hashPassword = \(PlainPassword plain) -> do
+        HashedPassword . fromJust <$> liftIO (BCrypt.hashPasswordUsingPolicy BCrypt.fastBcryptHashingPolicy plain)
+    }
 
 authHandlerImpl ::
   ( Has1 UserRepository env,

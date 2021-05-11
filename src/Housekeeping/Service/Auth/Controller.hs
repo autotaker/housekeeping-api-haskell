@@ -13,14 +13,12 @@ import Control.Env.Hierarchical
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Char (isAscii)
 import Housekeeping.Service.Auth.Interface
-  ( AuthConfig,
-    AuthHandler (..),
-    cookieSettings,
-    jwtSettings,
+  ( AuthHandler (..),
     signinHandler,
     signupHandler,
   )
 import Housekeeping.Service.Auth.Model (PlainPassword (..), User)
+import Housekeeping.Session
 import Lens.Micro.Platform (makeLenses, view, (^.))
 import RIO
   ( Generic,
@@ -82,7 +80,7 @@ type AuthResponse a =
 api :: Proxy API
 api = Proxy
 
-server :: forall env. (Has1 AuthHandler env, Has AuthConfig env) => ServerT API (RIO env)
+server :: forall env. (Has1 AuthHandler env, Has SessionConfig env) => ServerT API (RIO env)
 server = signin :<|> signup :<|> signout
   where
     signin :: PasswordForm -> RIO env (AuthResponse User)
