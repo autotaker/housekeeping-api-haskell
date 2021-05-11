@@ -1,7 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -21,12 +20,11 @@ module Housekeeping.DataSource
   )
 where
 
-import Control.Env.Hierarchical
-import Control.Method
+import Control.Env.Hierarchical (Has, getL)
+import Control.Method (Method (Base, curryMethod, uncurryMethod))
 import Data.Pool (Pool, putResource, takeResource)
 import Database.PostgreSQL.Simple (Connection, FromRow, Only (..), Query, ToRow, (:.) (..))
 import qualified Database.PostgreSQL.Simple as Sql
-import Lens.Micro.Platform (makeLenses)
 import RIO (IORef, Int64, MonadIO (liftIO), RIO, Typeable, bracket, bracketOnError_, newIORef, readIORef, view, writeIORef)
 
 type family IConnection env
@@ -54,11 +52,7 @@ data Database env = Database
       RIO env [r]
   }
 
-makeLenses ''Database
-
 newtype TransactionManager conn = TransactionManager (IORef (Maybe conn))
-
-makeLenses ''TransactionManager
 
 type HasTransactionManager env =
   ( Has (TransactionManager (IConnection env)) env,
