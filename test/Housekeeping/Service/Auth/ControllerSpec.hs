@@ -24,7 +24,6 @@ import Housekeeping.Service.Auth.Interface
   )
 import Housekeeping.Service.Auth.Model
   ( PlainPassword (PlainPassword),
-    User (User),
   )
 import Housekeeping.Session
 import Network.HTTP.Client (defaultManagerSettings, newManager)

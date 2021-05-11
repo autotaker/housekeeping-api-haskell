@@ -112,6 +112,7 @@ test-suite housekeeping-api-haskell-test
     , hspec                     ^>=2.7.4
     , hspec-expectations        ^>=0.8.2
     , http-client
+    , servant-auth-client       ^>=0.4.1.0
     , servant-client            ^>=0.18.2
 
   build-tool-depends: hspec-discover:hspec-discover ^>=2.7

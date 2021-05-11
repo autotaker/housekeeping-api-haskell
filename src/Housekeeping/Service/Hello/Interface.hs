@@ -4,6 +4,7 @@
 module Housekeeping.Service.Hello.Interface where
 
 import Housekeeping.Service.Hello.Model
+import Housekeeping.Session (User)
 import RIO
 
 data HelloRepository env = HelloRepository
@@ -17,5 +18,6 @@ data HelloHandler env = HelloHandler
     errorHandler :: RIO env (),
     fatalHandler :: RIO env (),
     selectHandler :: RIO env [Text],
-    insertHandler :: Text -> RIO env ()
+    insertHandler :: Text -> RIO env (),
+    secretHandler :: User -> RIO env Hello
   }

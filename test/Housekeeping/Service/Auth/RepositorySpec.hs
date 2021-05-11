@@ -15,6 +15,7 @@ import Housekeeping.DataSource
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
 import Housekeeping.Service.Auth.Repository
+import Housekeeping.Session
 import RIO (ByteString, runRIO)
 import Test.Hspec
 import Test.Method

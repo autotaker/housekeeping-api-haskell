@@ -14,6 +14,7 @@ import Housekeeping.DataSource
   )
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
+import Housekeeping.Session (User (..), UserName)
 import RIO (MonadIO (liftIO), MonadTrans (lift), RIO, guard, isNothing, (^.))
 import Servant.Auth.Server (AuthResult (Authenticated, BadPassword, NoSuchUser))
 

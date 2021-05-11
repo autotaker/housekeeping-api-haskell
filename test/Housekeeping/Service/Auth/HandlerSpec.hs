@@ -31,9 +31,8 @@ import Housekeeping.Service.Auth.Model
   ( HashedPassword (..),
     PasswordAuth (..),
     PlainPassword (..),
-    User (..),
-    userName,
   )
+import Housekeeping.Session (User (User, _userId, _userName), userName)
 import Lens.Micro.Platform ((^.))
 import RIO
   ( ByteString,

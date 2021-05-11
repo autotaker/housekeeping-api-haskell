@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -26,8 +27,10 @@ import RIO
     RIO,
     catch,
     runRIO,
+    (^.),
   )
 import Servant
+import Servant.Auth.Server
 
 type API =
   "hello" :> Hello.API
@@ -49,12 +52,23 @@ api :: Proxy API
 api = Proxy
 
 app :: LogFunc -> Pool Connection -> SessionConfig -> Application
-app lf pool authConfig = serve api $ hoistServer api nt (Hello.server :<|> Auth.server)
+app lf pool config =
+  serveWithContext api ctx $ hoistServerWithContext api ctxProxy nt (Hello.server :<|> Auth.server)
   where
+    ctx :: Context '[JWTSettings, CookieSettings]
+    ctx = (config ^. jwtSettings) :. (config ^. cookieSettings) :. EmptyContext
+    ctxProxy :: Proxy '[JWTSettings, CookieSettings]
+    ctxProxy = Proxy
     nt :: RIO Env a -> Handler a
     nt action = do
       transactionManager <- liftIO defaultTransactionManager
-      let env = Env lf pool transactionManager databaseImpl authConfig
+      let env =
+            Env
+              lf
+              pool
+              transactionManager
+              databaseImpl
+              config
       Handler $
         ExceptT $
           (Right <$> runRIO env action)

@@ -19,6 +19,7 @@ import Housekeeping.Service.Hello.Interface
     selectMessage,
   )
 import Housekeeping.Service.Hello.Model (Hello (..))
+import Housekeeping.Session (User, userName)
 import Servant.Server
 
 helloHandlerImpl :: (Has LogFunc env, Has1 HelloRepository env) => HelloHandler env
@@ -29,7 +30,8 @@ helloHandlerImpl =
       errorHandler = errorImpl,
       fatalHandler = fatalImpl,
       selectHandler = selectImpl,
-      insertHandler = insertImpl
+      insertHandler = insertImpl,
+      secretHandler = secretImpl
     }
 
 insertImpl :: (Has LogFunc env, Has1 HelloRepository env) => Text -> RIO env ()
@@ -61,3 +63,8 @@ fatalImpl :: (Has LogFunc env) => RIO env ()
 fatalImpl = do
   logInfo "GET Fatal"
   undefined
+
+secretImpl :: (Has LogFunc env) => User -> RIO env Hello
+secretImpl user = do
+  logInfo "GET Secret"
+  pure $ Secret (textDisplay (user ^. userName))

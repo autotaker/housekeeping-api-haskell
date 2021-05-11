@@ -7,6 +7,7 @@ import Control.Env.Hierarchical
 import Housekeeping.DataSource
 import Housekeeping.Service.Auth.Interface
 import Housekeeping.Service.Auth.Model
+import Housekeeping.Session (userId, userName)
 import RIO
 
 userRepositoryImpl :: Has1 Database env => UserRepository env

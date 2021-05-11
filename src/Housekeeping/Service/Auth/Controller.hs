@@ -17,8 +17,13 @@ import Housekeeping.Service.Auth.Interface
     signinHandler,
     signupHandler,
   )
-import Housekeeping.Service.Auth.Model (PlainPassword (..), User)
+import Housekeeping.Service.Auth.Model (PlainPassword (..))
 import Housekeeping.Session
+  ( SessionConfig,
+    User,
+    cookieSettings,
+    jwtSettings,
+  )
 import Lens.Micro.Platform (makeLenses, view, (^.))
 import RIO
   ( Generic,

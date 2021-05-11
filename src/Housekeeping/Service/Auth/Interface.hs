@@ -4,9 +4,8 @@ import Housekeeping.Service.Auth.Model
   ( HashedPassword,
     PasswordAuth,
     PlainPassword,
-    User,
-    UserName,
   )
+import Housekeeping.Session (User, UserName)
 import RIO (RIO)
 import Servant.Auth.Server
   ( AuthResult,

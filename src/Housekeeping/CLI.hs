@@ -15,7 +15,6 @@ import Network.HTTP.Types.Status
 import Network.Wai
 import Network.Wai.Handler.Warp
 import qualified RIO.List as L
-import Servant.Auth.Server (defaultCookieSettings, defaultJWTSettings, generateKey)
 import System.Environment (lookupEnv)
 
 formatAccessLog :: Request -> Status -> Maybe Integer -> Utf8Builder
@@ -61,13 +60,7 @@ appConnectInfo = do
       }
 
 appSessionConfig :: IO SessionConfig
-appSessionConfig = do
-  jwk <- generateKey
-  pure
-    SessionConfig
-      { _jwtSettings = defaultJWTSettings jwk,
-        _cookieSettings = defaultCookieSettings
-      }
+appSessionConfig = defaultSessionConfig
 
 mkDataSource :: IO (Pool Connection)
 mkDataSource = do

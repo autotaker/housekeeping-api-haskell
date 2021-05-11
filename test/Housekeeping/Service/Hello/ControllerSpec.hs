@@ -14,11 +14,13 @@ import Control.Monad.Except
 import Housekeeping.Service.Hello.Controller
 import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Model
+import Housekeeping.Session
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.HTTP.Types
 import qualified Network.Wai.Handler.Warp as Warp
-import RIO (RIO, Text, catch, runRIO, throwIO)
+import RIO (Display (textDisplay), RIO, Text, catch, runRIO, throwIO, (^.))
 import Servant
+import Servant.Auth.Server
 import Servant.Client
   ( BaseUrl (baseUrlPort),
     ClientError (FailureResponse),
@@ -46,16 +48,21 @@ mockHelloHandler =
       errorHandler = throwIO err400,
       fatalHandler = throwIO err500,
       selectHandler = pure ["MESSAGE"],
-      insertHandler = \x -> liftIO $ x `shouldBe` "INSERT TEST"
+      insertHandler = \x -> liftIO $ x `shouldBe` "INSERT TEST",
+      secretHandler = \user ->
+        pure $ Secret $ textDisplay $ user ^. userName
     }
 
 newtype Env = Env (HelloHandler Env)
 
 deriveEnv ''Env
 
-testApp :: Application
-testApp = serve api $ hoistServer api nt server
+testApp :: SessionConfig -> Application
+testApp config = serveWithContext api ctx $ hoistServerWithContext api ctxProxy nt server
   where
+    ctx = (config ^. jwtSettings) :. (config ^. cookieSettings) :. EmptyContext
+    ctxProxy :: Proxy '[JWTSettings, CookieSettings]
+    ctxProxy = Proxy
     nt :: RIO Env a -> Handler a
     nt action =
       Handler $
@@ -64,7 +71,9 @@ testApp = serve api $ hoistServer api nt server
             `catch` (pure . Left)
 
 withTestApp :: (Warp.Port -> IO ()) -> IO ()
-withTestApp = Warp.testWithApplication (pure testApp)
+withTestApp =
+  Warp.testWithApplication $
+    testApp <$> defaultSessionConfig
 
 helloAPI :: Proxy ("hello" :> Get '[JSON] Hello)
 helloAPI = Proxy
