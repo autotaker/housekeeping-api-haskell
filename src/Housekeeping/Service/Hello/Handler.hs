@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Housekeeping.Service.Hello.Handler
   ( helloHandlerImpl,
@@ -34,12 +35,12 @@ helloHandlerImpl =
 insertImpl :: (Has LogFunc env, Has1 HelloRepository env) => Text -> RIO env ()
 insertImpl msg = do
   logInfo $ "insert message: " <> display msg
-  runIF (\h -> insertMessage h msg)
+  runIF (\HelloRepository {..} -> insertMessage msg)
 
 selectImpl :: (Has LogFunc env, Has1 HelloRepository env) => RIO env [Text]
 selectImpl = do
   logInfo "select message"
-  runIF selectMessage
+  runIF (\HelloRepository {..} -> selectMessage)
 
 helloImpl :: (Has LogFunc env) => RIO env Hello
 helloImpl = do

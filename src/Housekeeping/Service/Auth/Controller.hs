@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
@@ -13,7 +14,7 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Char (isAscii)
 import Housekeeping.Service.Auth.Interface
   ( AuthConfig,
-    AuthHandler,
+    AuthHandler (..),
     cookieSettings,
     jwtSettings,
     signinHandler,
@@ -91,7 +92,7 @@ server = signin :<|> signup :<|> signout
       unless (T.all isAscii textPasswd) $ throwM err400
       let passwd = PlainPassword $ encodeUtf8 textPasswd
       config <- view getL
-      res <- runIF $ \auth -> signinHandler auth usernm passwd
+      res <- runIF $ \AuthHandler {..} -> signinHandler usernm passwd
       case res of
         Authenticated user -> do
           mAccept <- liftIO $ acceptLogin (config ^. cookieSettings) (config ^. jwtSettings) user
@@ -106,7 +107,7 @@ server = signin :<|> signup :<|> signout
           textPasswd = form ^. password
       unless (T.all isAscii textPasswd) $ throwM err400
       let passwd = PlainPassword $ encodeUtf8 textPasswd
-      mUser <- runIF $ \auth -> signupHandler auth usernm passwd
+      mUser <- runIF $ \AuthHandler {..} -> signupHandler usernm passwd
       case mUser of
         Just user -> pure user
         Nothing -> throwM err409 {errBody = "The user ID is already taken"}

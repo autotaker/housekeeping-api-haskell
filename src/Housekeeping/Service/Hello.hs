@@ -8,7 +8,7 @@ module Housekeeping.Service.Hello (api, server, API) where
 
 import Control.Env.Hierarchical
 import Control.Monad.Reader (withReaderT)
-import Housekeeping.DataSource (Database, HasConnectionPool (..), HasTransactionManager (..))
+import Housekeeping.DataSource (Database, IConnection)
 import Housekeeping.Service.Hello.Controller (API, api)
 import qualified Housekeeping.Service.Hello.Controller as Controller
 import Housekeeping.Service.Hello.Handler (helloHandlerImpl)
@@ -25,12 +25,7 @@ data HelloEnv env
 
 deriveEnv ''HelloEnv
 
-instance HasConnectionPool env => HasConnectionPool (HelloEnv env) where
-  type IConnection (HelloEnv env) = IConnection env
-  connectionPoolL = superL . connectionPoolL
-
-instance HasTransactionManager env => HasTransactionManager (HelloEnv env) where
-  transactionManagerL = superL . transactionManagerL
+type instance IConnection (HelloEnv env) = IConnection env
 
 server :: (Has LogFunc env, Has1 Database env) => ServerT API (RIO env)
 server = hoistServer api nt Controller.server

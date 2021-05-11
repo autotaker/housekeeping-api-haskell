@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Housekeeping.Service.Auth.Repository where
 
@@ -16,10 +17,8 @@ userRepositoryImpl =
     }
   where
     create user = do
-      r <- runIF $ \db ->
-        view
-          query
-          db
+      r <- runIF $ \Database {..} ->
+        query
           "INSERT INTO user (user_name) VALUES (?) RETURNING user_id"
           (Only $ user ^. userName)
       case r of
@@ -31,10 +30,8 @@ userRepositoryImpl =
               ++ ", returning = "
               ++ show rows
     findUser username = do
-      r <- runIF $ \db ->
-        view
-          query
-          db
+      r <- runIF $ \Database {..} ->
+        query
           "SELECT user_name, user_id FROM user WHERE user_name = ?"
           (Only username)
       case r of
@@ -53,8 +50,8 @@ authRepositoryImpl =
       "SELECT u.user_id, u.user_name, a.hashed_password"
         <> " FROM user u INNER JOIN auth_password a"
         <> " ON u.user_id = a.user_id AND u.user_name = ?"
-    findPassword usernm = runIF $ \db -> do
-      rows <- view query db findPasswordSql (Only usernm)
+    findPassword usernm = runIF $ \Database {..} -> do
+      rows <- query findPasswordSql (Only usernm)
       case rows of
         [user :. Only passwd] -> pure $ Just $ PasswordAuth user passwd
         [] -> pure Nothing
@@ -68,4 +65,4 @@ authRepositoryImpl =
     upsertPassword auth = do
       let userid = auth ^. passwordAuthUser . userId
           passwd = auth ^. passwordAuthPass
-      void $ runIF $ \db -> view execute db upsertPasswordSql (userid, passwd)
+      void $ runIF $ \Database {..} -> execute upsertPasswordSql (userid, passwd)

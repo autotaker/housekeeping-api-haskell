@@ -14,8 +14,7 @@ import qualified Crypto.BCrypt as BCrypt
 import Data.Maybe (fromJust)
 import Data.Pool (Pool, createPool)
 import Housekeeping.DataSource
-  ( HasConnectionPool (..),
-    HasTransactionManager (..),
+  ( IConnection,
     TransactionManager,
     Transactional (..),
     defaultTransactionManager,
@@ -118,12 +117,7 @@ auth1 = PasswordAuth user1 hashedPassword1
 user1 :: User
 user1 = User {_userName = "user1", _userId = 0}
 
-instance HasTransactionManager Env where
-  transactionManagerL = getL
-
-instance HasConnectionPool Env where
-  type IConnection Env = MConnection
-  connectionPoolL = getL
+type instance IConnection Env = MConnection
 
 type Methods = AuthRepositoryLabel Env :|: UserRepositoryLabel Env :|: MConnectionLabel
 
