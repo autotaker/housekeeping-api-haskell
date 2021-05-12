@@ -27,7 +27,7 @@ deriveEnv ''Env
 deriveLabel ''Database
 
 user1 :: User
-user1 = User "user1" 0
+user1 = User 0 "user1"
 
 mockSalt :: ByteString
 mockSalt = "$2y$04$akDsXE7raEDxa1btakPxWO"
@@ -52,7 +52,7 @@ spec = do
                 decl $
                   whenArgs Query (anything, dynArg (== Only usernm))
                     `thenReturn` toDyn [user1]
-          run proto `shouldReturn` Just (User "user1" 0)
+          run proto `shouldReturn` Just (User 0 "user1")
       context "when username is not registered" $ do
         it "return Nothing" $ do
           let proto =
@@ -74,7 +74,7 @@ spec = do
             withProtocol proto $ \db ->
               runRIO (Env db) $
                 createUser userRepositoryImpl user
-          user = User "user1" 0
+          user = User 0 "user1"
           usernm :: UserName
           usernm = "user1"
       it "return User with fresh user_id" $ do
@@ -82,7 +82,7 @@ spec = do
               decl $
                 whenArgs Query (anything, dynArg (== Only usernm))
                   `thenReturn` toDyn [Only (1 :: Int)]
-        run proto `shouldReturn` User "user1" 1
+        run proto `shouldReturn` User 1 "user1"
       context "if database returns non-single rows" $ do
         let proto =
               decl $

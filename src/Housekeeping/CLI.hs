@@ -15,6 +15,7 @@ import Network.HTTP.Types.Status
 import Network.Wai
 import Network.Wai.Handler.Warp
 import qualified RIO.List as L
+import Servant.Auth.Server
 import System.Environment (lookupEnv)
 
 formatAccessLog :: Request -> Status -> Maybe Integer -> Utf8Builder

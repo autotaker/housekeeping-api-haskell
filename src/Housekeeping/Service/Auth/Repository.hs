@@ -20,7 +20,7 @@ userRepositoryImpl =
     create user = do
       r <- runIF $ \Database {..} ->
         query
-          "INSERT INTO user (user_name) VALUES (?) RETURNING user_id"
+          "INSERT INTO \"user\" (user_name) VALUES (?) RETURNING user_id"
           (Only $ user ^. userName)
       case r of
         [Only i] -> pure $ user & userId .~ i
@@ -33,7 +33,7 @@ userRepositoryImpl =
     findUser username = do
       r <- runIF $ \Database {..} ->
         query
-          "SELECT user_name, user_id FROM user WHERE user_name = ?"
+          "SELECT user_name, user_id FROM \"user\" WHERE user_name = ?"
           (Only username)
       case r of
         [user] -> pure $ Just user
@@ -49,7 +49,7 @@ authRepositoryImpl =
   where
     findPasswordSql =
       "SELECT u.user_id, u.user_name, a.hashed_password"
-        <> " FROM user u INNER JOIN auth_password a"
+        <> " FROM \"user\" u INNER JOIN auth_password a"
         <> " ON u.user_id = a.user_id AND u.user_name = ?"
     findPassword usernm = runIF $ \Database {..} -> do
       rows <- query findPasswordSql (Only usernm)

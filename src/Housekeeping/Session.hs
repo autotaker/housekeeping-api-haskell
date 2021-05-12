@@ -20,7 +20,10 @@ type UserId = Int
 
 type UserName = Text
 
-data User = User {_userName :: UserName, _userId :: UserId}
+data User = User
+  { _userId :: UserId,
+    _userName :: UserName
+  }
   deriving (Show, Eq, Ord, Generic)
 
 makeLenses ''User

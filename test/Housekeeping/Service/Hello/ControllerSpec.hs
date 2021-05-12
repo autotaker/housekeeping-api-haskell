@@ -146,7 +146,7 @@ spec = do
     describe "GET /secret" $ do
       context "if session is authenticated" $
         it "should return user name of the current session" $ \port -> do
-          let user = User "user1" 1
+          let user = User 1 "user1"
           Right jwt <- makeJWT user (config ^. jwtSettings) Nothing
           let token = Token $ BS.toStrict jwt
           result <- runClientM (client secretAPI token) (clientEnv port)

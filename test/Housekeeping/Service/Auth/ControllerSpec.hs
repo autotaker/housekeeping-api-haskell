@@ -69,11 +69,11 @@ mockAuthHandler :: AuthHandler env
 mockAuthHandler =
   AuthHandler
     { signinHandler = mockup $ do
-        when (args ((== "user1"), (== PlainPassword "password1"))) `thenReturn` Authenticated (User "user1" 0)
+        when (args ((== "user1"), (== PlainPassword "password1"))) `thenReturn` Authenticated (User 0 "user1")
         when anything `thenReturn` NoSuchUser,
       signupHandler = mockup $ do
         when (args ((== "user1"), anything)) `thenReturn` Nothing
-        when anything `thenMethod` (\usernm !_ -> pure $ Just $ User usernm 1)
+        when anything `thenMethod` (\usernm !_ -> pure $ Just $ User 1 usernm)
     }
 
 mockSessionConfig :: JWK -> SessionConfig
@@ -123,7 +123,7 @@ spec = around withTestApp $ do
       it "should return User" $ \port -> do
         let form = PasswordForm "user1" "password1"
         result <- runClientM (client signinApi form) (clientEnv port)
-        fmap getResponse result `shouldBe` Right (User "user1" 0)
+        fmap getResponse result `shouldBe` Right (User 0 "user1")
 
     context "if incorrect password is given" $ do
       it "should return unauthorized response" $ \port -> do
@@ -148,7 +148,7 @@ spec = around withTestApp $ do
       it "should return user" $ \port -> do
         let form = PasswordForm "user2" "password2"
         result <- runClientM (client signupApi form) (clientEnv port)
-        result `shouldBe` Right (User "user2" 1)
+        result `shouldBe` Right (User 1 "user2")
     context "if username is taken" $ do
       it "should return 409 error response" $ \port -> do
         let form = PasswordForm "user1" "password1"
