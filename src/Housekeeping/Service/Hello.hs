@@ -1,37 +1,38 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Housekeeping.Service.Hello (api, server, API) where
 
+import Control.Env.Hierarchical
 import Control.Monad.Reader (withReaderT)
-import Housekeeping.DataSource (HasDataSource (..))
+import Data.Proxy
+import Housekeeping.DataSource (Database, IConnection)
 import Housekeeping.Service.Hello.Controller (API, api)
 import qualified Housekeeping.Service.Hello.Controller as Controller
 import Housekeeping.Service.Hello.Handler (helloHandlerImpl)
-import Housekeeping.Service.Hello.Interface (HasHelloHandler (..), HasHelloRepository (..))
+import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Repository (helloRepositoryImpl)
-import RIO (HasLogFunc (..), Lens', RIO (..), lens)
-import Servant.Server (HasServer (ServerT), hoistServer)
+import RIO (LogFunc, RIO (..))
+import Servant.Auth.Server (CookieSettings, JWTSettings)
+import Servant.Server (HasServer (ServerT, hoistServerWithContext))
 
-newtype HelloEnv env = HelloEnv {inherit :: env}
+data HelloEnv env
+  = HelloEnv
+      (HelloHandler (HelloEnv env))
+      (HelloRepository (HelloEnv env))
+      (Extends env)
 
-instance (HasLogFunc env, HasDataSource env) => HasHelloHandler (HelloEnv env) where
-  helloHandlerL = lens (const helloHandlerImpl) const
+deriveEnv ''HelloEnv
 
-instance (HasLogFunc env, HasDataSource env) => HasHelloRepository (HelloEnv env) where
-  helloRepositoryL = lens (const helloRepositoryImpl) const
+type instance IConnection (HelloEnv env) = IConnection env
 
-instance HasLogFunc env => HasLogFunc (HelloEnv env) where
-  logFuncL = inheritL . logFuncL
-
-inheritL :: Lens' (HelloEnv env) env
-inheritL = lens inherit (\x y -> x {inherit = y})
-
-instance HasDataSource env => HasDataSource (HelloEnv env) where
-  dataSourceL = inheritL . dataSourceL
-
-server :: (HasLogFunc env, HasDataSource env) => ServerT API (RIO env)
-server = hoistServer api nt (Controller.server helloHandlerImpl)
+server :: (Has LogFunc env, Has1 Database env) => ServerT API (RIO env)
+server = hoistServerWithContext api ctxProxy nt Controller.server
   where
+    ctxProxy :: Proxy '[JWTSettings, CookieSettings]
+    ctxProxy = Proxy
     nt action =
-      RIO $ withReaderT HelloEnv $ unRIO action
+      RIO $ withReaderT (HelloEnv helloHandlerImpl helloRepositoryImpl . Extends) $ unRIO action

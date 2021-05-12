@@ -2,63 +2,69 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Housekeeping.Service.Hello.Handler
   ( helloHandlerImpl,
     HelloRepository (..),
-    HasHelloRepository (..),
   )
 where
 
-import Control.Method
+import Control.Env.Hierarchical
+import Housekeeping.Prelude
 import Housekeeping.Service.Hello.Interface
-  ( HasHelloRepository (..),
-    HelloHandler (..),
+  ( HelloHandler (..),
     HelloRepository (..),
     insertMessage,
     selectMessage,
   )
 import Housekeeping.Service.Hello.Model (Hello (..))
-import RIO
+import Housekeeping.Session (User, userName)
 import Servant.Server
 
-helloHandlerImpl :: (HasLogFunc env, HasHelloRepository env) => HelloHandler env
+helloHandlerImpl :: (Has LogFunc env, Has1 HelloRepository env) => HelloHandler env
 helloHandlerImpl =
   HelloHandler
-    { _helloHandler = helloImpl,
-      _worldHandler = worldImpl,
-      _errorHandler = errorImpl,
-      _fatalHandler = fatalImpl,
-      _selectHandler = selectImpl,
-      _insertHandler = insertImpl
+    { helloHandler = helloImpl,
+      worldHandler = worldImpl,
+      errorHandler = errorImpl,
+      fatalHandler = fatalImpl,
+      selectHandler = selectImpl,
+      insertHandler = insertImpl,
+      secretHandler = secretImpl
     }
 
-insertImpl :: (HasCallStack, HasLogFunc env, HasHelloRepository env) => Text -> RIO env ()
+insertImpl :: (Has LogFunc env, Has1 HelloRepository env) => Text -> RIO env ()
 insertImpl msg = do
   logInfo $ "insert message: " <> display msg
-  invoke (helloRepositoryL . insertMessage) msg
+  runIF (\HelloRepository {..} -> insertMessage msg)
 
-selectImpl :: (HasCallStack, HasLogFunc env, HasHelloRepository env) => RIO env [Text]
+selectImpl :: (Has LogFunc env, Has1 HelloRepository env) => RIO env [Text]
 selectImpl = do
   logInfo "select message"
-  invoke (helloRepositoryL . selectMessage)
+  runIF (\HelloRepository {..} -> selectMessage)
 
-helloImpl :: (HasCallStack, HasLogFunc env) => RIO env Hello
+helloImpl :: (Has LogFunc env) => RIO env Hello
 helloImpl = do
   logInfo "GET Hello"
   pure Hello
 
-worldImpl :: (HasCallStack, HasLogFunc env) => RIO env Hello
+worldImpl :: (Has LogFunc env) => RIO env Hello
 worldImpl = do
   logInfo "GET World"
   pure World
 
-errorImpl :: (HasCallStack, HasLogFunc env) => RIO env ()
+errorImpl :: (Has LogFunc env) => RIO env ()
 errorImpl = do
   logInfo "GET Error"
   throwIO err400
 
-fatalImpl :: (HasCallStack, HasLogFunc env) => RIO env ()
+fatalImpl :: (Has LogFunc env) => RIO env ()
 fatalImpl = do
   logInfo "GET Fatal"
   undefined
+
+secretImpl :: (Has LogFunc env) => User -> RIO env Hello
+secretImpl user = do
+  logInfo "GET Secret"
+  pure $ Secret (textDisplay (user ^. userName))

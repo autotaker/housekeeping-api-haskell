@@ -24,23 +24,32 @@ extra-source-files:
   README.md
 
 common shared-properties
-  default-language: Haskell2010
+  default-language:   Haskell2010
+  default-extensions:
+    OverloadedStrings
+    TemplateHaskell
+
   build-depends:
     , aeson
-    , base                ^>=4.13.0.0
+    , base                 ^>=4.13.0.0
+    , bcrypt               ^>=0.0.11
+    , hierarchical-env     ^>=0.2.0.0
     , http-api-data
     , http-types
-    , method              ^>=0.2.0.0
-    , microlens-platform  ^>=0.4.2
+    , jose
+    , method               ^>=0.4.0.0
+    , microlens-platform   ^>=0.4.2
     , mtl
-    , postgresql-simple   ^>=0.6.3
-    , resource-pool       ^>=0.2.3.2
-    , rio                 ^>=0.1.19.0
-    , servant-server      ^>=0.18.2
-    , wai                 ^>=3.2.2.1
-    , warp                ^>=3.3.13
+    , postgresql-simple    ^>=0.6.3
+    , resource-pool        ^>=0.2.3.2
+    , rio                  ^>=0.1.19.0
+    , servant-auth-server  ^>=0.4.6.0
+    , servant-server       ^>=0.18.2
+    , transformers
+    , wai                  ^>=3.2.2.1
+    , warp                 ^>=3.3
 
-  ghc-options:      -Wall
+  ghc-options:        -Wall
 
 library
   import:          shared-properties
@@ -50,12 +59,20 @@ library
     Housekeeping.API
     Housekeeping.CLI
     Housekeeping.DataSource
+    Housekeeping.Prelude
+    Housekeeping.Service.Auth
+    Housekeeping.Service.Auth.Controller
+    Housekeeping.Service.Auth.Handler
+    Housekeeping.Service.Auth.Interface
+    Housekeeping.Service.Auth.Model
+    Housekeeping.Service.Auth.Repository
     Housekeeping.Service.Hello
     Housekeeping.Service.Hello.Controller
     Housekeeping.Service.Hello.Handler
     Housekeeping.Service.Hello.Interface
     Housekeeping.Service.Hello.Model
     Housekeeping.Service.Hello.Repository
+    Housekeeping.Session
 
   -- other-modules:
   -- other-extensions:
@@ -82,8 +99,12 @@ test-suite housekeeping-api-haskell-test
   -- cabal-fmt: expand test -Spec
   other-modules:
     Housekeeping.CLISpec
+    Housekeeping.Service.Auth.ControllerSpec
+    Housekeeping.Service.Auth.HandlerSpec
+    Housekeeping.Service.Auth.RepositorySpec
     Housekeeping.Service.Hello.ControllerSpec
     Housekeeping.Service.Hello.HandlerSpec
+    Housekeeping.Service.Hello.RepositorySpec
 
   build-depends:
     , base                      ^>=4.13.0.0
@@ -91,6 +112,7 @@ test-suite housekeeping-api-haskell-test
     , hspec                     ^>=2.7.4
     , hspec-expectations        ^>=0.8.2
     , http-client
+    , servant-auth-client       ^>=0.4.1.0
     , servant-client            ^>=0.18.2
 
   build-tool-depends: hspec-discover:hspec-discover ^>=2.7

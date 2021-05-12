@@ -1,26 +1,35 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Housekeeping.Service.Hello.Repository
-  ( HasDataSource (..),
-    helloRepositoryImpl,
+  ( helloRepositoryImpl,
   )
 where
 
+import Control.Env.Hierarchical
 import Housekeeping.DataSource
+  ( Database (..),
+    Only (Only, fromOnly),
+    execute,
+    query_,
+  )
 import Housekeeping.Service.Hello.Handler
 import RIO
 
-selectMessageImpl :: HasDataSource env => RIO env [Text]
-selectMessageImpl = withConnection $ \conn -> do
-  liftIO $ map fromOnly <$> query_ conn "SELECT msg FROM message"
+selectMessageImpl :: Has1 Database env => RIO env [Text]
+selectMessageImpl = runIF $ \Database {..} ->
+  map fromOnly <$> query_ "SELECT msg FROM message"
 
-insertMessageImpl :: HasDataSource env => Text -> RIO env ()
-insertMessageImpl msg = withConnection $ \conn -> do
-  void $ liftIO $ execute conn "INSERT INTO message (msg) VALUES (?)" (Only msg)
+insertMessageImpl :: Has1 Database env => Text -> RIO env ()
+insertMessageImpl msg = void $
+  runIF $ \Database {..} ->
+    execute
+      "INSERT INTO message (msg) VALUES (?)"
+      (Only msg)
 
-helloRepositoryImpl :: HasDataSource env => HelloRepository env
+helloRepositoryImpl :: Has1 Database env => HelloRepository env
 helloRepositoryImpl =
   HelloRepository
-    { _insertMessage = insertMessageImpl,
-      _selectMessage = selectMessageImpl
+    { insertMessage = insertMessageImpl,
+      selectMessage = selectMessageImpl
     }

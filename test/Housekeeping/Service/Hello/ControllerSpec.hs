@@ -1,54 +1,73 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Housekeeping.Service.Hello.ControllerSpec where
 
+import Control.Env.Hierarchical
 import Control.Monad.Except
 import Housekeeping.Service.Hello.Controller
 import Housekeeping.Service.Hello.Interface
 import Housekeeping.Service.Hello.Model
+import Housekeeping.Session
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.HTTP.Types
 import qualified Network.Wai.Handler.Warp as Warp
-import RIO (RIO, Text, catch, runRIO, throwIO)
+import RIO (Display (textDisplay), RIO, Text, catch, runRIO, throwIO, (^.))
+import qualified RIO.ByteString.Lazy as BS
 import Servant
-import Servant.Client
-  ( BaseUrl (baseUrlPort),
-    ClientError (FailureResponse),
-    ResponseF (responseStatusCode),
-    client,
-    mkClientEnv,
-    parseBaseUrl,
-    runClientM,
-  )
+import Servant.Auth.Client
+import Servant.Auth.Server
+import Servant.Client (BaseUrl (baseUrlPort), ClientError (FailureResponse), Response, ResponseF (responseStatusCode), client, mkClientEnv, parseBaseUrl, runClientM)
 import Test.Hspec
+  ( Spec,
+    around,
+    context,
+    describe,
+    it,
+    runIO,
+    shouldBe,
+    shouldSatisfy,
+  )
 
 mockHelloHandler :: HelloHandler env
 mockHelloHandler =
   HelloHandler
-    { _helloHandler = pure Hello,
-      _worldHandler = pure World,
-      _errorHandler = throwIO err400,
-      _fatalHandler = throwIO err500,
-      _selectHandler = pure ["MESSAGE"],
-      _insertHandler = \x -> liftIO $ x `shouldBe` "INSERT TEST"
+    { helloHandler = pure Hello,
+      worldHandler = pure World,
+      errorHandler = throwIO err400,
+      fatalHandler = throwIO err500,
+      selectHandler = pure ["MESSAGE"],
+      insertHandler = \x -> liftIO $ x `shouldBe` "INSERT TEST",
+      secretHandler = \user ->
+        pure $ Secret $ textDisplay $ user ^. userName
     }
 
-testApp :: Application
-testApp = serve api $ hoistServer api nt (server mockHelloHandler)
+newtype Env = Env (HelloHandler Env)
+
+deriveEnv ''Env
+
+testApp :: SessionConfig -> Application
+testApp config = serveWithContext api ctx $ hoistServerWithContext api ctxProxy nt server
   where
-    nt :: RIO () a -> Handler a
+    ctx = (config ^. jwtSettings) :. (config ^. cookieSettings) :. EmptyContext
+    ctxProxy :: Proxy '[JWTSettings, CookieSettings]
+    ctxProxy = Proxy
+    nt :: RIO Env a -> Handler a
     nt action =
       Handler $
         ExceptT $
-          (Right <$> runRIO () action)
+          (Right <$> runRIO (Env mockHelloHandler) action)
             `catch` (pure . Left)
 
-withTestApp :: (Warp.Port -> IO ()) -> IO ()
-withTestApp = Warp.testWithApplication (pure testApp)
+withTestApp :: SessionConfig -> (Warp.Port -> IO ()) -> IO ()
+withTestApp config =
+  Warp.testWithApplication $ pure $ testApp config
 
 helloAPI :: Proxy ("hello" :> Get '[JSON] Hello)
 helloAPI = Proxy
@@ -71,9 +90,20 @@ insertAPIForm = Proxy
 insertAPIJSON :: Proxy ("message" :> ReqBody '[JSON] MessageForm :> Post '[JSON] ())
 insertAPIJSON = Proxy
 
+secretAPI :: Proxy ("secret" :> Auth '[JWT] User :> Get '[JSON] Hello)
+secretAPI = Proxy
+
+secretAPIUnauthed :: Proxy ("secret" :> Get '[JSON] Hello)
+secretAPIUnauthed = Proxy
+
+isFailure :: (Response -> Bool) -> Either ClientError a -> Bool
+isFailure matcher (Left (FailureResponse _ res)) = matcher res
+isFailure _ _ = False
+
 spec :: Spec
 spec = do
-  around withTestApp $ do
+  config <- runIO defaultSessionConfig
+  around (withTestApp config) $ do
     baseUrl <- runIO $ parseBaseUrl "http://localhost"
     manager <- runIO $ newManager defaultManagerSettings
     let clientEnv port = mkClientEnv manager baseUrl {baseUrlPort = port}
@@ -91,16 +121,12 @@ spec = do
     describe "GET /error" $ do
       it "should return client error response" $ \port -> do
         result <- runClientM (client errorAPI) (clientEnv port)
-        result `shouldSatisfy` \case
-          Left (FailureResponse _ res) -> statusIsClientError (responseStatusCode res)
-          _ -> False
+        result `shouldSatisfy` isFailure (statusIsClientError . responseStatusCode)
 
     describe "GET /fatal" $ do
       it "should return server error response" $ \port -> do
         result <- runClientM (client fatalAPI) (clientEnv port)
-        result `shouldSatisfy` \case
-          Left (FailureResponse _ res) -> statusIsServerError (responseStatusCode res)
-          _ -> False
+        result `shouldSatisfy` isFailure (statusIsServerError . responseStatusCode)
 
     describe "GET /message" $ do
       it "should return list of messages" $ \port -> do
@@ -117,3 +143,15 @@ spec = do
         let form = MessageForm "INSERT TEST"
         result <- runClientM (client insertAPIJSON form) (clientEnv port)
         result `shouldBe` Right ()
+    describe "GET /secret" $ do
+      context "if session is authenticated" $
+        it "should return user name of the current session" $ \port -> do
+          let user = User 1 "user1"
+          Right jwt <- makeJWT user (config ^. jwtSettings) Nothing
+          let token = Token $ BS.toStrict jwt
+          result <- runClientM (client secretAPI token) (clientEnv port)
+          result `shouldBe` Right (Secret "user1")
+      context "if session is not authenticated" $
+        it "should return user name of the current session" $ \port -> do
+          result <- runClientM (client secretAPIUnauthed) (clientEnv port)
+          result `shouldSatisfy` isFailure ((== 401) . statusCode . responseStatusCode)

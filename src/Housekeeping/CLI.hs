@@ -1,15 +1,21 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Housekeeping.CLI (main, formatAccessLog) where
 
+import Control.Env.Hierarchical
 import Data.Pool
 import Database.PostgreSQL.Simple
 import Housekeeping.API
+import Housekeeping.Prelude
+import Housekeeping.Session
 import Network.HTTP.Types.Status
 import Network.Wai
 import Network.Wai.Handler.Warp
-import RIO
 import qualified RIO.List as L
+import Servant.Auth.Server
 import System.Environment (lookupEnv)
 
 formatAccessLog :: Request -> Status -> Maybe Integer -> Utf8Builder
@@ -54,26 +60,29 @@ appConnectInfo = do
         connectDatabase = name
       }
 
+appSessionConfig :: IO SessionConfig
+appSessionConfig = defaultSessionConfig
+
 mkDataSource :: IO (Pool Connection)
 mkDataSource = do
   cInfo <- appConnectInfo
   createPool (connect cInfo) close 1 0.5 10
+
+newtype E = E LogFunc
+
+deriveEnv ''E
 
 main :: IO ()
 main = do
   logOptions <- setLogUseTime True <$> logOptionsHandle stderr True
   withLogFunc logOptions $ \lf -> do
     ds <- mkDataSource
-    let env =
-          Env
-            { dataSource = ds,
-              logFunc = lf
-            }
-    runRIO env $ logInfo "Server started"
+    sessionConfig <- appSessionConfig
+    runRIO (E lf) $ logInfo "Server started"
     let warpLogger req status mFileSize =
-          runRIO env $ logInfo $ formatAccessLog req status mFileSize
+          runRIO (E lf) $ logInfo $ formatAccessLog req status mFileSize
     let settings =
           defaultSettings
             & setLogger warpLogger
             & setPort 8080
-    runSettings settings (app env)
+    runSettings settings (app lf ds sessionConfig)
