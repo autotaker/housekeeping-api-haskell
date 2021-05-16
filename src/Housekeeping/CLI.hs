@@ -68,6 +68,9 @@ mkDataSource = do
   cInfo <- appConnectInfo
   createPool (connect cInfo) close 1 0.5 10
 
+mkWebRoot :: IO WebRoot
+mkWebRoot = WebRoot . fromMaybe "www" <$> lookupEnv "WEB_ROOT"
+
 newtype E = E LogFunc
 
 deriveEnv ''E
@@ -78,6 +81,7 @@ main = do
   withLogFunc logOptions $ \lf -> do
     ds <- mkDataSource
     sessionConfig <- appSessionConfig
+    webRoot <- mkWebRoot
     runRIO (E lf) $ logInfo "Server started"
     let warpLogger req status mFileSize =
           runRIO (E lf) $ logInfo $ formatAccessLog req status mFileSize
@@ -85,4 +89,5 @@ main = do
           defaultSettings
             & setLogger warpLogger
             & setPort 8080
-    runSettings settings (app lf ds sessionConfig)
+
+    runSettings settings (app lf ds sessionConfig webRoot)

@@ -11,6 +11,7 @@ module Housekeeping.API
     app,
     api,
     Env,
+    WebRoot (WebRoot),
   )
 where
 
@@ -35,6 +36,9 @@ import Servant.Auth.Server
 type API =
   "hello" :> Hello.API
     :<|> "auth" :> Auth.API
+    :<|> Raw
+
+newtype WebRoot = WebRoot FilePath deriving (Show, Eq)
 
 data Env
   = Env
@@ -43,6 +47,7 @@ data Env
       (TransactionManager Connection)
       (Database Env)
       SessionConfig
+      WebRoot
 
 deriveEnv ''Env
 
@@ -51,9 +56,11 @@ type instance IConnection Env = Connection
 api :: Proxy API
 api = Proxy
 
-app :: LogFunc -> Pool Connection -> SessionConfig -> Application
-app lf pool config =
-  serveWithContext api ctx $ hoistServerWithContext api ctxProxy nt (Hello.server :<|> Auth.server)
+app :: LogFunc -> Pool Connection -> SessionConfig -> WebRoot -> Application
+app lf pool config webRoot@(WebRoot rootPath) =
+  serveWithContext api ctx $
+    hoistServerWithContext api ctxProxy nt $
+      Hello.server :<|> Auth.server :<|> fileServer
   where
     ctx :: Context '[JWTSettings, CookieSettings]
     ctx = (config ^. jwtSettings) :. (config ^. cookieSettings) :. EmptyContext
@@ -69,7 +76,9 @@ app lf pool config =
               transactionManager
               databaseImpl
               config
+              webRoot
       Handler $
         ExceptT $
           (Right <$> runRIO env action)
             `catch` (pure . Left)
+    fileServer = serveDirectoryWebApp rootPath
